@@ -1,0 +1,32 @@
+# Google C/C++ Code Style settings
+# https://clang.llvm.org/docs/ClangFormatStyleOptions.html
+# Author: Kehan Xue, kehan.xue (at) gmail.com
+
+Language: Cpp
+BasedOnStyle: LLVM
+ColumnLimit: 120
+Standard: c++11
+TabWidth: 4
+UseTab: Never
+AllowShortBlocksOnASingleLine: Never
+AllowShortFunctionsOnASingleLine: None
+InsertNewlineAtEOF: true
+AlignAfterOpenBracket: BlockIndent
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortIfStatementsOnASingleLine: Never
+BinPackArguments: false
+BracedInitializerIndentWidth: 2
+AlignConsecutiveMacros:
+  Enabled: true
+  AcrossEmptyLines: true
+  AcrossComments: false
+SeparateDefinitionBlocks: Always
+BinPackParameters: false
+ExperimentalAutoDetectBinPacking: false
+AlwaysBreakAfterReturnType: None
+AlwaysBreakAfterDefinitionReturnType: None
+PenaltyReturnTypeOnItsOwnLine: 500
+BreakBeforeBraces: Allman
+InsertBraces: true
+InsertTrailingCommas: Wrapped

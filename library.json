@@ -1,0 +1,32 @@
+{
+    "name": "esp32-idf-ascom-alpaca",
+    "version": "1.0.0",
+    "description": "ESP32 Native ASCOM Alpaca Server",
+    "keywords": "ascom, alpaca, esp32, covercalibrator, observingcondition, switch, telescope, focuser, camera",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/darkdragonsastro/esp32-idf-ascom-alpaca.git"
+    },
+    "authors": {
+        "name": "Rick Bassham",
+        "email": "rick@darkdragonsastro.com",
+        "maintainer": true
+    },
+    "license": "Apache 2.0",
+    "frameworks": "espidf",
+    "platforms": "espressif32",
+    "headers": [
+        "api.h",
+        "device.h",
+        "discovery.h"
+    ],
+    "examples": [
+        {
+            "name": "Example",
+            "base": "examples",
+            "files": [
+                "main.cpp"
+            ]
+        }
+    ]
+}
