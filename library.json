@@ -12,7 +12,7 @@
         "email": "rick@darkdragonsastro.com",
         "maintainer": true
     },
-    "license": "Apache 2.0",
+    "license": "Apache-2.0",
     "frameworks": "espidf",
     "platforms": "espressif32",
     "headers": [
