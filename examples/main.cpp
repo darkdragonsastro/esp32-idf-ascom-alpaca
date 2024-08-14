@@ -21,6 +21,9 @@ extern "C" void app_main(void)
   ESP_ERROR_CHECK(esp_ota_get_partition_description(esp_ota_get_running_partition(), &desc));
 
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+
+  config.max_uri_handlers = 32; // Default is 8, adjust to handle the number of routes you have.
+
   httpd_handle_t esp_http_server;
   ESP_ERROR_CHECK(httpd_start(&esp_http_server, &config));
 
