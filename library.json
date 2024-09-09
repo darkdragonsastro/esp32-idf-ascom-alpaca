@@ -1,6 +1,6 @@
 {
     "name": "esp32-idf-ascom-alpaca",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "description": "ESP32 Native ASCOM Alpaca Server",
     "keywords": "ascom, alpaca, esp32, covercalibrator, observingcondition, switch, telescope, focuser, camera",
     "repository": {
