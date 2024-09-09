@@ -4321,7 +4321,7 @@ esp_err_t Api::handle_get_switch_minswitchvalue(httpd_req_t *req)
       double switch_value = 0.0;
       if (check_return(switch_device->get_minswitchvalue(id_value, &switch_value), root))
       {
-        cJSON_AddBoolToObject(root, "Value", switch_value);
+        cJSON_AddNumberToObject(root, "Value", switch_value);
       }
     }
     else
@@ -4370,7 +4370,7 @@ esp_err_t Api::handle_get_switch_maxswitchvalue(httpd_req_t *req)
       double switch_value = 0.0;
       if (check_return(switch_device->get_maxswitchvalue(id_value, &switch_value), root))
       {
-        cJSON_AddBoolToObject(root, "Value", switch_value);
+        cJSON_AddNumberToObject(root, "Value", switch_value);
       }
     }
     else
@@ -4565,7 +4565,7 @@ esp_err_t Api::handle_get_switch_switchstep(httpd_req_t *req)
       double switchstep = 0.0;
       if (check_return(switch_device->get_switchstep(id_value, &switchstep), root))
       {
-        cJSON_AddBoolToObject(root, "Value", switchstep);
+        cJSON_AddNumberToObject(root, "Value", switchstep);
       }
     }
     else
