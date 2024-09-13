@@ -4272,7 +4272,7 @@ esp_err_t Api::handle_get_switch_getswitchvalue(httpd_req_t *req)
       double switch_value = 0.0;
       if (check_return(switch_device->get_getswitchvalue(id_value, &switch_value), root))
       {
-        cJSON_AddBoolToObject(root, "Value", switch_value);
+        cJSON_AddNumberToObject(root, "Value", switch_value);
       }
     }
     else
