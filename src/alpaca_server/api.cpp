@@ -763,7 +763,6 @@ esp_err_t Api::send_json_response(httpd_req_t *req, alpaca_request_t *parsed_req
   }
 
   cJSON_Delete(parsed_request->body);
-  delete parsed_request;
 
   return ESP_OK;
 }
