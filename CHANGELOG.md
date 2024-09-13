@@ -1,3 +1,9 @@
+## 1.1.4 (2024-09-13)
+
+### Fix
+
+- don't free mem from the stack :facepalm:
+
 ## 1.1.3 (2024-09-13)
 
 ### Fix
