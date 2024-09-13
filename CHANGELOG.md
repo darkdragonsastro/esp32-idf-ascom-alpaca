@@ -1,3 +1,9 @@
+## 1.1.2 (2024-09-13)
+
+### Fix
+
+- return value for getswitchvalue
+
 ## 1.1.1 (2024-09-09)
 
 ### Fix
