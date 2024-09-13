@@ -762,6 +762,9 @@ esp_err_t Api::send_json_response(httpd_req_t *req, alpaca_request_t *parsed_req
     ESP_LOGD(TAG, "%s %s %lldus %ld", method, req->uri, duration, parsed_request->server_transaction_id);
   }
 
+  cJSON_Delete(parsed_request->body);
+  delete parsed_request;
+
   return ESP_OK;
 }
 
