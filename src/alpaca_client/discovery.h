@@ -7,17 +7,6 @@
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-
-#include <lwip/sockets.h>
-#pragma once
-#ifndef __ALPACA_CLIENT_DISCOVERY_H__
-#define __ALPACA_CLIENT_DISCOVERY_H__
-
-#include <stdio.h>
-#include <string.h>
-
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
 #include <freertos/semphr.h>
 
 #include <lwip/sockets.h>
