@@ -41,6 +41,20 @@ static void add_discovered_device(const char *ip_address, int port)
   // Protect access to the linked list
   if (xSemaphoreTake(discovered_devices_mutex, portMAX_DELAY) == pdTRUE)
   {
+    // Check for duplicate entries
+    discovered_device_t *current = discovered_devices_head;
+    while (current != NULL)
+    {
+      if (strcmp(current->ip_address, ip_address) == 0 && current->port == port)
+      {
+        ESP_LOGW(TAG, "Duplicate device found: %s:%d", ip_address, port);
+        free(new_device);
+        xSemaphoreGive(discovered_devices_mutex);
+        return;
+      }
+      current = current->next;
+    }
+
     if (discovered_devices_head == NULL)
     {
       discovered_devices_head = new_device;
