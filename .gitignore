@@ -5,3 +5,4 @@
 .vscode/ipch
 *.tar.gz
 sdkconfig*
+.aider*
