@@ -11,12 +11,60 @@
 #include <lwip/sockets.h>
 #include <lwip/netdb.h>
 
+#include "alpaca_client/discovery.h"
+
+#include <stdio.h>
+#include <string.h>
+
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+
+#include <lwip/sockets.h>
+#include <lwip/netdb.h>
+
 #include <cJSON.h>
 #include <esp_log.h>
 
-#include "alpaca_client/discovery.h"
-
 static const char *TAG = "alpaca_client_discovery";
+
+typedef struct discovered_device_t {
+    char ip_address[16]; // e.g., "192.168.1.100"
+    int port;
+    struct discovered_device_t *next;
+} discovered_device_t;
+
+static discovered_device_t *discovered_devices_head = NULL;
+static SemaphoreHandle_t discovered_devices_mutex;
+
+static void add_discovered_device(const char *ip_address, int port) {
+    discovered_device_t *new_device = (discovered_device_t *)malloc(sizeof(discovered_device_t));
+    if (new_device == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate memory for discovered device");
+        return;
+    }
+    strncpy(new_device->ip_address, ip_address, sizeof(new_device->ip_address) - 1);
+    new_device->ip_address[sizeof(new_device->ip_address) - 1] = '\0'; // Ensure null termination
+    new_device->port = port;
+    new_device->next = NULL;
+
+    // Protect access to the linked list
+    if (xSemaphoreTake(discovered_devices_mutex, portMAX_DELAY) == pdTRUE) {
+        if (discovered_devices_head == NULL) {
+            discovered_devices_head = new_device;
+        } else {
+            discovered_device_t *current = discovered_devices_head;
+            while (current->next != NULL) {
+                current = current->next;
+            }
+            current->next = new_device;
+        }
+        xSemaphoreGive(discovered_devices_mutex);
+    } else {
+        ESP_LOGE(TAG, "Failed to acquire mutex");
+        free(new_device); // Free the allocated memory if mutex acquisition fails
+    }
+}
+
 
 esp_err_t alpaca_discover()
 {
@@ -101,8 +149,9 @@ esp_err_t alpaca_discover()
       if (cJSON_IsNumber(alpaca_port))
       {
         int port = alpaca_port->valueint;
-        ESP_LOGI(TAG, "Alpaca Port: %d", port);
-        // TODO: Store the discovered port and IP address for later use.  A linked list or other data structure would be appropriate.
+        const char *ip_address = inet_ntoa(source_addr.sin_addr);
+        ESP_LOGI(TAG, "Alpaca Port: %d, IP Address: %s", port, ip_address);
+        add_discovered_device(ip_address, port);
       }
       else
       {
@@ -116,4 +165,77 @@ esp_err_t alpaca_discover()
   return ESP_OK;
 }
 
-#endif // __ALPACA_CLIENT_DISCOVERY_H__
+esp_err_t alpaca_discovery_init() {
+    discovered_devices_mutex = xSemaphoreCreateMutex();
+    if (discovered_devices_mutex == NULL) {
+        ESP_LOGE(TAG, "Failed to create mutex");
+        return ESP_FAIL;
+    }
+    return ESP_OK;
+}
+
+esp_err_t alpaca_get_discovered_devices(discovered_device_t **devices, size_t *count) {
+    if (devices == NULL || count == NULL) {
+        ESP_LOGE(TAG, "Invalid arguments");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    *devices = NULL;
+    *count = 0;
+
+    if (xSemaphoreTake(discovered_devices_mutex, portMAX_DELAY) == pdTRUE) {
+        // Count the number of discovered devices
+        discovered_device_t *current = discovered_devices_head;
+        while (current != NULL) {
+            (*count)++;
+            current = current->next;
+        }
+
+        if (*count > 0) {
+            // Allocate memory for the array of devices
+            *devices = (discovered_device_t *)malloc(sizeof(discovered_device_t) * (*count));
+            if (*devices == NULL) {
+                ESP_LOGE(TAG, "Failed to allocate memory for discovered devices array");
+                xSemaphoreGive(discovered_devices_mutex);
+                return ESP_FAIL;
+            }
+
+            // Copy the discovered devices to the array
+            current = discovered_devices_head;
+            for (size_t i = 0; i < *count; i++) {
+                memcpy(&(*devices)[i], current, sizeof(discovered_device_t));
+                current = current->next;
+                (*devices)[i].next = NULL; // Ensure next pointer is NULL in the array
+            }
+        }
+        xSemaphoreGive(discovered_devices_mutex);
+        return ESP_OK;
+    } else {
+        ESP_LOGE(TAG, "Failed to acquire mutex");
+        return ESP_FAIL;
+    }
+}
+
+void alpaca_free_discovered_devices(discovered_device_t *devices) {
+    if (devices != NULL) {
+        free(devices);
+    }
+}
+
+void alpaca_discovery_cleanup() {
+    // Protect access to the linked list
+    if (xSemaphoreTake(discovered_devices_mutex, portMAX_DELAY) == pdTRUE) {
+        // Free all the devices in the linked list
+        discovered_device_t *current = discovered_devices_head;
+        while (current != NULL) {
+            discovered_device_t *next = current->next;
+            free(current);
+            current = next;
+        }
+        discovered_devices_head = NULL; // Reset the head of the list
+        xSemaphoreGive(discovered_devices_mutex);
+    } else {
+        ESP_LOGE(TAG, "Failed to acquire mutex during cleanup");
+    }
+    vSemaphoreDelete(discovered_devices_mutex);
+}
