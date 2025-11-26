@@ -1,3 +1,9 @@
+## 1.3.3 (2025-11-26)
+
+### Fix
+
+- use strncasecmp for Content-Type header comparison
+
 ## 1.3.2 (2025-03-04)
 
 ### Fix
