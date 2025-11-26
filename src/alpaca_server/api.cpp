@@ -646,7 +646,7 @@ esp_err_t Api::parse_request(httpd_req_t *req, alpaca_request_t *parsed_request)
 
       ESP_LOGD(TAG, "Content-Type: %s", hdr);
 
-      if (strcasecmp(hdr, "application/x-www-form-urlencoded") == 0)
+      if (strncasecmp(hdr, "application/x-www-form-urlencoded", 33) == 0)
       {
         ESP_LOGD(TAG, "Parsing form data: %s", buf);
         parse_string(parsed_request, buf, true);
