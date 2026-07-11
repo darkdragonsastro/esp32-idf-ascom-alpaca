@@ -1,3 +1,9 @@
+## 1.3.5 (2026-07-11)
+
+### Fix
+
+- telescope handlers sent bare HTTP 400 on driver errors instead of Alpaca JSON error
+
 ## 1.3.4 (2026-07-10)
 
 ### Fix
