@@ -481,6 +481,89 @@ void Api::register_switch_routes(httpd_handle_t server, size_t device_number, Sw
 void Api::register_telescope_routes(httpd_handle_t server, size_t device_number, Telescope *device)
 {
   char uri[128];
+
+  REGISTER_DEVICE_ROUTE("telescope", "alignmentmode", device_number, HTTP_GET, get_telescope_alignmentmode);
+  REGISTER_DEVICE_ROUTE("telescope", "altitude", device_number, HTTP_GET, get_telescope_altitude);
+  REGISTER_DEVICE_ROUTE("telescope", "aperturearea", device_number, HTTP_GET, get_telescope_aperturearea);
+  REGISTER_DEVICE_ROUTE("telescope", "aperturediameter", device_number, HTTP_GET, get_telescope_aperturediameter);
+  REGISTER_DEVICE_ROUTE("telescope", "athome", device_number, HTTP_GET, get_telescope_athome);
+  REGISTER_DEVICE_ROUTE("telescope", "atpark", device_number, HTTP_GET, get_telescope_atpark);
+  REGISTER_DEVICE_ROUTE("telescope", "axisrates", device_number, HTTP_GET, get_telescope_axisrates);
+  REGISTER_DEVICE_ROUTE("telescope", "azimuth", device_number, HTTP_GET, get_telescope_azimuth);
+  REGISTER_DEVICE_ROUTE("telescope", "canfindhome", device_number, HTTP_GET, get_telescope_canfindhome);
+  REGISTER_DEVICE_ROUTE("telescope", "canmoveaxis", device_number, HTTP_GET, get_telescope_canmoveaxis);
+  REGISTER_DEVICE_ROUTE("telescope", "canpark", device_number, HTTP_GET, get_telescope_canpark);
+  REGISTER_DEVICE_ROUTE("telescope", "canpulseguide", device_number, HTTP_GET, get_telescope_canpulseguide);
+  REGISTER_DEVICE_ROUTE("telescope", "cansetdeclinationrate", device_number, HTTP_GET, get_telescope_cansetdeclinationrate);
+  REGISTER_DEVICE_ROUTE("telescope", "cansetguiderates", device_number, HTTP_GET, get_telescope_cansetguiderates);
+  REGISTER_DEVICE_ROUTE("telescope", "cansetpark", device_number, HTTP_GET, get_telescope_cansetpark);
+  REGISTER_DEVICE_ROUTE("telescope", "cansetpierside", device_number, HTTP_GET, get_telescope_cansetpierside);
+  REGISTER_DEVICE_ROUTE("telescope", "cansetrightascensionrate", device_number, HTTP_GET, get_telescope_cansetrightascensionrate);
+  REGISTER_DEVICE_ROUTE("telescope", "cansettracking", device_number, HTTP_GET, get_telescope_cansettracking);
+  REGISTER_DEVICE_ROUTE("telescope", "canslew", device_number, HTTP_GET, get_telescope_canslew);
+  REGISTER_DEVICE_ROUTE("telescope", "canslewaltaz", device_number, HTTP_GET, get_telescope_canslewaltaz);
+  REGISTER_DEVICE_ROUTE("telescope", "canslewaltazasync", device_number, HTTP_GET, get_telescope_canslewaltazasync);
+  REGISTER_DEVICE_ROUTE("telescope", "canslewasync", device_number, HTTP_GET, get_telescope_canslewasync);
+  REGISTER_DEVICE_ROUTE("telescope", "cansync", device_number, HTTP_GET, get_telescope_cansync);
+  REGISTER_DEVICE_ROUTE("telescope", "cansyncaltaz", device_number, HTTP_GET, get_telescope_cansyncaltaz);
+  REGISTER_DEVICE_ROUTE("telescope", "canunpark", device_number, HTTP_GET, get_telescope_canunpark);
+  REGISTER_DEVICE_ROUTE("telescope", "declination", device_number, HTTP_GET, get_telescope_declination);
+  REGISTER_DEVICE_ROUTE("telescope", "declinationrate", device_number, HTTP_GET, get_telescope_declinationrate);
+  REGISTER_DEVICE_ROUTE("telescope", "destinationsideofpier", device_number, HTTP_GET, get_telescope_destinationsideofpier);
+  REGISTER_DEVICE_ROUTE("telescope", "doesrefraction", device_number, HTTP_GET, get_telescope_doesrefraction);
+  REGISTER_DEVICE_ROUTE("telescope", "equatorialsystem", device_number, HTTP_GET, get_telescope_equatorialsystem);
+  REGISTER_DEVICE_ROUTE("telescope", "focallength", device_number, HTTP_GET, get_telescope_focallength);
+  REGISTER_DEVICE_ROUTE("telescope", "guideratedeclination", device_number, HTTP_GET, get_telescope_guideratedeclination);
+  REGISTER_DEVICE_ROUTE("telescope", "guideraterightascension", device_number, HTTP_GET, get_telescope_guideraterightascension);
+  REGISTER_DEVICE_ROUTE("telescope", "ispulseguiding", device_number, HTTP_GET, get_telescope_ispulseguiding);
+  REGISTER_DEVICE_ROUTE("telescope", "rightascension", device_number, HTTP_GET, get_telescope_rightascension);
+  REGISTER_DEVICE_ROUTE("telescope", "rightascensionrate", device_number, HTTP_GET, get_telescope_rightascensionrate);
+  REGISTER_DEVICE_ROUTE("telescope", "sideofpier", device_number, HTTP_GET, get_telescope_sideofpier);
+  REGISTER_DEVICE_ROUTE("telescope", "siderealtime", device_number, HTTP_GET, get_telescope_siderealtime);
+  REGISTER_DEVICE_ROUTE("telescope", "siteelevation", device_number, HTTP_GET, get_telescope_siteelevation);
+  REGISTER_DEVICE_ROUTE("telescope", "sitelatitude", device_number, HTTP_GET, get_telescope_sitelatitude);
+  REGISTER_DEVICE_ROUTE("telescope", "sitelongitude", device_number, HTTP_GET, get_telescope_sitelongitude);
+  REGISTER_DEVICE_ROUTE("telescope", "slewing", device_number, HTTP_GET, get_telescope_slewing);
+  REGISTER_DEVICE_ROUTE("telescope", "slewsettletime", device_number, HTTP_GET, get_telescope_slewsettletime);
+  REGISTER_DEVICE_ROUTE("telescope", "targetdeclination", device_number, HTTP_GET, get_telescope_targetdeclination);
+  REGISTER_DEVICE_ROUTE("telescope", "targetrightascension", device_number, HTTP_GET, get_telescope_targetrightascension);
+  REGISTER_DEVICE_ROUTE("telescope", "tracking", device_number, HTTP_GET, get_telescope_tracking);
+  REGISTER_DEVICE_ROUTE("telescope", "trackingrate", device_number, HTTP_GET, get_telescope_trackingrate);
+  REGISTER_DEVICE_ROUTE("telescope", "trackingrates", device_number, HTTP_GET, get_telescope_trackingrates);
+  REGISTER_DEVICE_ROUTE("telescope", "utcdate", device_number, HTTP_GET, get_telescope_utcdate);
+  REGISTER_DEVICE_ROUTE("telescope", "abortslew", device_number, HTTP_PUT, put_telescope_abortslew);
+  REGISTER_DEVICE_ROUTE("telescope", "declinationrate", device_number, HTTP_PUT, put_telescope_declinationrate);
+  REGISTER_DEVICE_ROUTE("telescope", "doesrefraction", device_number, HTTP_PUT, put_telescope_doesrefraction);
+  REGISTER_DEVICE_ROUTE("telescope", "findhome", device_number, HTTP_PUT, put_telescope_findhome);
+  REGISTER_DEVICE_ROUTE("telescope", "guideratedeclination", device_number, HTTP_PUT, put_telescope_guideratedeclination);
+  REGISTER_DEVICE_ROUTE("telescope", "guideraterightascension", device_number, HTTP_PUT, put_telescope_guideraterightascension);
+  REGISTER_DEVICE_ROUTE("telescope", "moveaxis", device_number, HTTP_PUT, put_telescope_moveaxis);
+  REGISTER_DEVICE_ROUTE("telescope", "park", device_number, HTTP_PUT, put_telescope_park);
+  REGISTER_DEVICE_ROUTE("telescope", "pulseguide", device_number, HTTP_PUT, put_telescope_pulseguide);
+  REGISTER_DEVICE_ROUTE("telescope", "rightascensionrate", device_number, HTTP_PUT, put_telescope_rightascensionrate);
+  REGISTER_DEVICE_ROUTE("telescope", "setpark", device_number, HTTP_PUT, put_telescope_setpark);
+  REGISTER_DEVICE_ROUTE("telescope", "sideofpier", device_number, HTTP_PUT, put_telescope_sideofpier);
+  REGISTER_DEVICE_ROUTE("telescope", "siteelevation", device_number, HTTP_PUT, put_telescope_siteelevation);
+  REGISTER_DEVICE_ROUTE("telescope", "sitelatitude", device_number, HTTP_PUT, put_telescope_sitelatitude);
+  REGISTER_DEVICE_ROUTE("telescope", "sitelongitude", device_number, HTTP_PUT, put_telescope_sitelongitude);
+  REGISTER_DEVICE_ROUTE("telescope", "slewsettletime", device_number, HTTP_PUT, put_telescope_slewsettletime);
+  REGISTER_DEVICE_ROUTE("telescope", "slewtoaltazasync", device_number, HTTP_PUT, put_telescope_slewtoaltazasync);
+  REGISTER_DEVICE_ROUTE("telescope", "slewtocoordinatesasync", device_number, HTTP_PUT, put_telescope_slewtocoordinatesasync);
+  REGISTER_DEVICE_ROUTE("telescope", "slewtotargetasync", device_number, HTTP_PUT, put_telescope_slewtotargetasync);
+  // Alias: INDI's alpaca bridge (indi_alpaca_telescope) slews via the synchronous
+  // endpoint name then polls /slewing — i.e. async semantics under the sync name.
+  // Blocking a httpd worker for a full slew is not viable on-device, so serve the
+  // async handler here. NOTE: nonconformant when CanSlew=false; revisit at ConformU gate.
+  REGISTER_DEVICE_ROUTE("telescope", "slewtotarget", device_number, HTTP_PUT, put_telescope_slewtotargetasync);
+  REGISTER_DEVICE_ROUTE("telescope", "synctoaltaz", device_number, HTTP_PUT, put_telescope_synctoaltaz);
+  REGISTER_DEVICE_ROUTE("telescope", "synctocoordinates", device_number, HTTP_PUT, put_telescope_synctocoordinates);
+  REGISTER_DEVICE_ROUTE("telescope", "synctotarget", device_number, HTTP_PUT, put_telescope_synctotarget);
+  REGISTER_DEVICE_ROUTE("telescope", "targetdeclination", device_number, HTTP_PUT, put_telescope_targetdeclination);
+  REGISTER_DEVICE_ROUTE("telescope", "targetrightascension", device_number, HTTP_PUT, put_telescope_targetrightascension);
+  REGISTER_DEVICE_ROUTE("telescope", "tracking", device_number, HTTP_PUT, put_telescope_tracking);
+  REGISTER_DEVICE_ROUTE("telescope", "trackingrate", device_number, HTTP_PUT, put_telescope_trackingrate);
+  REGISTER_DEVICE_ROUTE("telescope", "unpark", device_number, HTTP_PUT, put_telescope_unpark);
+  REGISTER_DEVICE_ROUTE("telescope", "utcdate", device_number, HTTP_PUT, put_telescope_utcdate);
 }
 
 void parse_string(alpaca_request_t *req, char *query, bool case_sensitive = true)
