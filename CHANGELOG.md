@@ -1,3 +1,10 @@
+## 1.3.4 (2026-07-10)
+
+### Fix
+
+- telescope PUT handlers parsed form params as JSON numbers (always NaN)
+- register telescope routes — register_telescope_routes() was an empty stub since initial commit
+
 ## 1.3.3 (2025-11-26)
 
 ### Fix
