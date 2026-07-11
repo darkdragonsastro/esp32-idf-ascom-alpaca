@@ -628,6 +628,28 @@ void parse_string(alpaca_request_t *req, char *query, bool case_sensitive = true
   }
 }
 
+
+// Alpaca PUT parameters arrive form-urlencoded; parse_string() stores them as
+// JSON *strings*, so cJSON_GetNumberValue() on them yields NAN. Parse one as a
+// double the same way the dome/focuser handlers do, returning NAN when the
+// parameter is absent or malformed. Tolerates a genuine JSON number too.
+static double get_number_param(cJSON *body, const char *key)
+{
+  cJSON *item = cJSON_GetObjectItemCaseSensitive(body, key);
+  if (cJSON_IsNumber(item))
+  {
+    return cJSON_GetNumberValue(item);
+  }
+  char *str = cJSON_GetStringValue(item);
+  if (!str || *str == '\0')
+  {
+    return NAN;
+  }
+  char *endptr;
+  double value = strtod(str, &endptr);
+  return (*endptr == '\0') ? value : NAN;
+}
+
 esp_err_t Api::parse_request(httpd_req_t *req, alpaca_request_t *parsed_request)
 {
   parsed_request->body = cJSON_CreateObject();
@@ -5492,8 +5514,8 @@ esp_err_t Api::handle_put_telescope_declinationrate(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    double DeclinationRate = cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "DeclinationRate"));
-    if (DeclinationRate != NAN)
+    double DeclinationRate = get_number_param(parsed_request.body, "DeclinationRate");
+    if (!isnan(DeclinationRate))
     {
       if (check_return(telescope_device->put_declinationrate(DeclinationRate), root))
       {
@@ -5707,8 +5729,8 @@ esp_err_t Api::handle_put_telescope_guideratedeclination(httpd_req_t *req)
   {
     Telescope *telescope_device = (Telescope *)device;
     double GuideRateDeclination =
-        cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "GuideRateDeclination"));
-    if (GuideRateDeclination != NAN)
+        get_number_param(parsed_request.body, "GuideRateDeclination");
+    if (!isnan(GuideRateDeclination))
     {
       if (check_return(telescope_device->put_guideratedeclination(GuideRateDeclination), root))
       {
@@ -5780,8 +5802,8 @@ esp_err_t Api::handle_put_telescope_guideraterightascension(httpd_req_t *req)
   {
     Telescope *telescope_device = (Telescope *)device;
     double GuideRateRightAscension =
-        cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "GuideRateRightAscension"));
-    if (GuideRateRightAscension != NAN)
+        get_number_param(parsed_request.body, "GuideRateRightAscension");
+    if (!isnan(GuideRateRightAscension))
     {
       if (check_return(telescope_device->put_guideraterightascension(GuideRateRightAscension), root))
       {
@@ -5922,8 +5944,8 @@ esp_err_t Api::handle_put_telescope_rightascensionrate(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    double RightAscensionRate = cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "RightAscensionRate"));
-    if (RightAscensionRate != NAN)
+    double RightAscensionRate = get_number_param(parsed_request.body, "RightAscensionRate");
+    if (!isnan(RightAscensionRate))
     {
       if (check_return(telescope_device->put_rightascensionrate(RightAscensionRate), root))
       {
@@ -5994,8 +6016,9 @@ esp_err_t Api::handle_put_telescope_sideofpier(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
+    double sideofpier_value = get_number_param(parsed_request.body, "SideOfPier");
     Telescope::SideOfPier sideofpier =
-        (Telescope::SideOfPier)cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "SideOfPier"));
+        isnan(sideofpier_value) ? Telescope::SideOfPier::Unknown : (Telescope::SideOfPier)sideofpier_value;
     if (sideofpier != Telescope::SideOfPier::Unknown)
     {
       if (check_return(telescope_device->put_sideofpier(sideofpier), root))
@@ -6102,8 +6125,8 @@ esp_err_t Api::handle_put_telescope_siteelevation(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    double SiteElevation = cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "SiteElevation"));
-    if (SiteElevation != NAN)
+    double SiteElevation = get_number_param(parsed_request.body, "SiteElevation");
+    if (!isnan(SiteElevation))
     {
       if (check_return(telescope_device->put_siteelevation(SiteElevation), root))
       {
@@ -6174,8 +6197,8 @@ esp_err_t Api::handle_put_telescope_sitelatitude(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    double value = cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "SiteLatitude"));
-    if (value != NAN)
+    double value = get_number_param(parsed_request.body, "SiteLatitude");
+    if (!isnan(value))
     {
       if (check_return(telescope_device->put_sitelatitude(value), root))
       {
@@ -6246,8 +6269,8 @@ esp_err_t Api::handle_put_telescope_sitelongitude(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    double value = cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "SiteLongitude"));
-    if (value != NAN)
+    double value = get_number_param(parsed_request.body, "SiteLongitude");
+    if (!isnan(value))
     {
       if (check_return(telescope_device->put_sitelongitude(value), root))
       {
@@ -6353,8 +6376,8 @@ esp_err_t Api::handle_put_telescope_slewsettletime(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    double value = cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "SlewSettleTime"));
-    if (value != NAN)
+    double value = get_number_param(parsed_request.body, "SlewSettleTime");
+    if (!isnan(value))
     {
       if (check_return(telescope_device->put_slewsettletime(value), root))
       {
@@ -6425,8 +6448,8 @@ esp_err_t Api::handle_put_telescope_targetdeclination(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    double value = cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "TargetDeclination"));
-    if (value != NAN)
+    double value = get_number_param(parsed_request.body, "TargetDeclination");
+    if (!isnan(value))
     {
       if (check_return(telescope_device->put_targetdeclination(value), root))
       {
@@ -6497,8 +6520,8 @@ esp_err_t Api::handle_put_telescope_targetrightascension(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    double value = cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "TargetRightAscension"));
-    if (value != NAN)
+    double value = get_number_param(parsed_request.body, "TargetRightAscension");
+    if (!isnan(value))
     {
       if (check_return(telescope_device->put_targetrightascension(value), root))
       {
@@ -6641,8 +6664,8 @@ esp_err_t Api::handle_put_telescope_trackingrate(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    double value = cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "TrackingRate"));
-    if (value != NAN && value >= 0 && value <= 3)
+    double value = get_number_param(parsed_request.body, "TrackingRate");
+    if (!isnan(value) && value >= 0 && value <= 3)
     {
       if (check_return(telescope_device->put_trackingrate((Telescope::TrackingRate)value), root))
       {
@@ -6990,9 +7013,10 @@ esp_err_t Api::handle_put_telescope_moveaxis(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    int32_t Axis = cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "Axis"));
-    double Rate = cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "Rate"));
-    if (Rate != NAN)
+    double Axis_value = get_number_param(parsed_request.body, "Axis");
+    double Rate = get_number_param(parsed_request.body, "Rate");
+    int32_t Axis = isnan(Axis_value) ? -1 : (int32_t)Axis_value;
+    if (!isnan(Rate) && Axis >= 0)
     {
       if (check_return(telescope_device->put_moveaxis((Telescope::TelescopeAxis)Axis, Rate), root))
       {
@@ -7061,11 +7085,11 @@ esp_err_t Api::handle_put_telescope_pulseguide(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    int32_t Direction = cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "Direction"));
-    int32_t Duration = cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "Duration"));
-    if (Direction != NAN && Duration != NAN)
+    double Direction_value = get_number_param(parsed_request.body, "Direction");
+    double Duration_value = get_number_param(parsed_request.body, "Duration");
+    if (!isnan(Direction_value) && !isnan(Duration_value))
     {
-      if (check_return(telescope_device->put_pulseguide((Telescope::GuideDirection)Direction, Duration), root))
+      if (check_return(telescope_device->put_pulseguide((Telescope::GuideDirection)(int32_t)Direction_value, (int32_t)Duration_value), root))
       {
       }
     }
@@ -7132,9 +7156,9 @@ esp_err_t Api::handle_put_telescope_slewtoaltazasync(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    double Azimuth = cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "Azimuth"));
-    double Altitude = cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "Altitude"));
-    if (Altitude != NAN && Azimuth != NAN)
+    double Azimuth = get_number_param(parsed_request.body, "Azimuth");
+    double Altitude = get_number_param(parsed_request.body, "Altitude");
+    if (!isnan(Altitude) && !isnan(Azimuth))
     {
       if (check_return(telescope_device->put_slewtoaltazasync(Altitude, Azimuth), root))
       {
@@ -7170,9 +7194,9 @@ esp_err_t Api::handle_put_telescope_slewtocoordinatesasync(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    double RightAscension = cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "RightAscension"));
-    double Declination = cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "Declination"));
-    if (RightAscension != NAN && Declination != NAN)
+    double RightAscension = get_number_param(parsed_request.body, "RightAscension");
+    double Declination = get_number_param(parsed_request.body, "Declination");
+    if (!isnan(RightAscension) && !isnan(Declination))
     {
       if (check_return(telescope_device->put_slewtocoordinatesasync(RightAscension, Declination), root))
       {
@@ -7241,9 +7265,9 @@ esp_err_t Api::handle_put_telescope_synctoaltaz(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    double Azimuth = cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "Azimuth"));
-    double Altitude = cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "Altitude"));
-    if (Altitude != NAN && Azimuth != NAN)
+    double Azimuth = get_number_param(parsed_request.body, "Azimuth");
+    double Altitude = get_number_param(parsed_request.body, "Altitude");
+    if (!isnan(Altitude) && !isnan(Azimuth))
     {
       if (check_return(telescope_device->put_synctoaltaz(Altitude, Azimuth), root))
       {
@@ -7279,9 +7303,9 @@ esp_err_t Api::handle_put_telescope_synctocoordinates(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    double RightAscension = cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "RightAscension"));
-    double Declination = cJSON_GetNumberValue(cJSON_GetObjectItem(parsed_request.body, "Declination"));
-    if (RightAscension != NAN && Declination != NAN)
+    double RightAscension = get_number_param(parsed_request.body, "RightAscension");
+    double Declination = get_number_param(parsed_request.body, "Declination");
+    if (!isnan(RightAscension) && !isnan(Declination))
     {
       if (check_return(telescope_device->put_synctocoordinates(RightAscension, Declination), root))
       {
