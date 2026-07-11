@@ -4644,11 +4644,6 @@ esp_err_t Api::handle_get_telescope_alignmentmode(httpd_req_t *req)
     {
       cJSON_AddNumberToObject(root, "Value", (int)value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -4678,11 +4673,6 @@ esp_err_t Api::handle_get_telescope_altitude(httpd_req_t *req)
     if (check_return(telescope_device->get_altitude(&value), root))
     {
       cJSON_AddNumberToObject(root, "Value", value);
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
     }
   }
   else
@@ -4714,11 +4704,6 @@ esp_err_t Api::handle_get_telescope_aperturearea(httpd_req_t *req)
     {
       cJSON_AddNumberToObject(root, "Value", value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -4748,11 +4733,6 @@ esp_err_t Api::handle_get_telescope_aperturediameter(httpd_req_t *req)
     if (check_return(telescope_device->get_aperturediameter(&value), root))
     {
       cJSON_AddNumberToObject(root, "Value", value);
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
     }
   }
   else
@@ -4784,11 +4764,6 @@ esp_err_t Api::handle_get_telescope_athome(httpd_req_t *req)
     {
       cJSON_AddBoolToObject(root, "Value", value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -4818,11 +4793,6 @@ esp_err_t Api::handle_get_telescope_atpark(httpd_req_t *req)
     if (check_return(telescope_device->get_atpark(&value), root))
     {
       cJSON_AddBoolToObject(root, "Value", value);
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
     }
   }
   else
@@ -4854,11 +4824,6 @@ esp_err_t Api::handle_get_telescope_azimuth(httpd_req_t *req)
     {
       cJSON_AddNumberToObject(root, "Value", value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -4888,11 +4853,6 @@ esp_err_t Api::handle_get_telescope_canfindhome(httpd_req_t *req)
     if (check_return(telescope_device->get_canfindhome(&value), root))
     {
       cJSON_AddBoolToObject(root, "Value", value);
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
     }
   }
   else
@@ -4924,11 +4884,6 @@ esp_err_t Api::handle_get_telescope_canpark(httpd_req_t *req)
     {
       cJSON_AddBoolToObject(root, "Value", value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -4958,11 +4913,6 @@ esp_err_t Api::handle_get_telescope_canpulseguide(httpd_req_t *req)
     if (check_return(telescope_device->get_canpulseguide(&value), root))
     {
       cJSON_AddBoolToObject(root, "Value", value);
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
     }
   }
   else
@@ -4994,11 +4944,6 @@ esp_err_t Api::handle_get_telescope_cansetdeclinationrate(httpd_req_t *req)
     {
       cJSON_AddBoolToObject(root, "Value", value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -5028,11 +4973,6 @@ esp_err_t Api::handle_get_telescope_cansetguiderates(httpd_req_t *req)
     if (check_return(telescope_device->get_cansetguiderates(&value), root))
     {
       cJSON_AddBoolToObject(root, "Value", value);
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
     }
   }
   else
@@ -5064,11 +5004,6 @@ esp_err_t Api::handle_get_telescope_cansetpark(httpd_req_t *req)
     {
       cJSON_AddBoolToObject(root, "Value", value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -5098,11 +5033,6 @@ esp_err_t Api::handle_get_telescope_cansetpierside(httpd_req_t *req)
     if (check_return(telescope_device->get_cansetpierside(&value), root))
     {
       cJSON_AddBoolToObject(root, "Value", value);
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
     }
   }
   else
@@ -5134,11 +5064,6 @@ esp_err_t Api::handle_get_telescope_cansetrightascensionrate(httpd_req_t *req)
     {
       cJSON_AddBoolToObject(root, "Value", value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -5168,11 +5093,6 @@ esp_err_t Api::handle_get_telescope_cansettracking(httpd_req_t *req)
     if (check_return(telescope_device->get_cansettracking(&value), root))
     {
       cJSON_AddBoolToObject(root, "Value", value);
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
     }
   }
   else
@@ -5204,11 +5124,6 @@ esp_err_t Api::handle_get_telescope_canslew(httpd_req_t *req)
     {
       cJSON_AddBoolToObject(root, "Value", value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -5238,11 +5153,6 @@ esp_err_t Api::handle_get_telescope_canslewaltaz(httpd_req_t *req)
     if (check_return(telescope_device->get_canslewaltaz(&value), root))
     {
       cJSON_AddBoolToObject(root, "Value", value);
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
     }
   }
   else
@@ -5274,11 +5184,6 @@ esp_err_t Api::handle_get_telescope_canslewaltazasync(httpd_req_t *req)
     {
       cJSON_AddBoolToObject(root, "Value", value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -5308,11 +5213,6 @@ esp_err_t Api::handle_get_telescope_canslewasync(httpd_req_t *req)
     if (check_return(telescope_device->get_canslewasync(&value), root))
     {
       cJSON_AddBoolToObject(root, "Value", value);
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
     }
   }
   else
@@ -5344,11 +5244,6 @@ esp_err_t Api::handle_get_telescope_cansync(httpd_req_t *req)
     {
       cJSON_AddBoolToObject(root, "Value", value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -5378,11 +5273,6 @@ esp_err_t Api::handle_get_telescope_cansyncaltaz(httpd_req_t *req)
     if (check_return(telescope_device->get_cansyncaltaz(&value), root))
     {
       cJSON_AddBoolToObject(root, "Value", value);
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
     }
   }
   else
@@ -5414,11 +5304,6 @@ esp_err_t Api::handle_get_telescope_canunpark(httpd_req_t *req)
     {
       cJSON_AddBoolToObject(root, "Value", value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -5449,11 +5334,6 @@ esp_err_t Api::handle_get_telescope_declination(httpd_req_t *req)
     {
       cJSON_AddNumberToObject(root, "Value", value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -5483,11 +5363,6 @@ esp_err_t Api::handle_get_telescope_declinationrate(httpd_req_t *req)
     if (check_return(telescope_device->get_declinationrate(&value), root))
     {
       cJSON_AddNumberToObject(root, "Value", value);
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
     }
   }
   else
@@ -5556,11 +5431,6 @@ esp_err_t Api::handle_get_telescope_doesrefraction(httpd_req_t *req)
     {
       cJSON_AddBoolToObject(root, "Value", value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -5628,11 +5498,6 @@ esp_err_t Api::handle_get_telescope_equatorialsystem(httpd_req_t *req)
     {
       cJSON_AddNumberToObject(root, "Value", (int)value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -5663,11 +5528,6 @@ esp_err_t Api::handle_get_telescope_focallength(httpd_req_t *req)
     {
       cJSON_AddNumberToObject(root, "Value", value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -5697,11 +5557,6 @@ esp_err_t Api::handle_get_telescope_guideratedeclination(httpd_req_t *req)
     if (check_return(telescope_device->get_guideratedeclination(&value), root))
     {
       cJSON_AddNumberToObject(root, "Value", value);
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
     }
   }
   else
@@ -5771,11 +5626,6 @@ esp_err_t Api::handle_get_telescope_guideraterightascension(httpd_req_t *req)
     {
       cJSON_AddNumberToObject(root, "Value", value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -5844,11 +5694,6 @@ esp_err_t Api::handle_get_telescope_ispulseguiding(httpd_req_t *req)
     {
       cJSON_AddBoolToObject(root, "Value", value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -5879,11 +5724,6 @@ esp_err_t Api::handle_get_telescope_rightascension(httpd_req_t *req)
     {
       cJSON_AddNumberToObject(root, "Value", value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -5913,11 +5753,6 @@ esp_err_t Api::handle_get_telescope_rightascensionrate(httpd_req_t *req)
     if (check_return(telescope_device->get_rightascensionrate(&value), root))
     {
       cJSON_AddNumberToObject(root, "Value", value);
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
     }
   }
   else
@@ -5985,11 +5820,6 @@ esp_err_t Api::handle_get_telescope_sideofpier(httpd_req_t *req)
     if (check_return(telescope_device->get_sideofpier(&value), root))
     {
       cJSON_AddNumberToObject(root, "Value", (int)value);
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
     }
   }
   else
@@ -6060,11 +5890,6 @@ esp_err_t Api::handle_get_telescope_siderealtime(httpd_req_t *req)
     {
       cJSON_AddNumberToObject(root, "Value", value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -6094,11 +5919,6 @@ esp_err_t Api::handle_get_telescope_siteelevation(httpd_req_t *req)
     if (check_return(telescope_device->get_siteelevation(&value), root))
     {
       cJSON_AddNumberToObject(root, "Value", value);
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
     }
   }
   else
@@ -6167,11 +5987,6 @@ esp_err_t Api::handle_get_telescope_sitelatitude(httpd_req_t *req)
     {
       cJSON_AddNumberToObject(root, "Value", value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -6238,11 +6053,6 @@ esp_err_t Api::handle_get_telescope_sitelongitude(httpd_req_t *req)
     if (check_return(telescope_device->get_sitelongitude(&value), root))
     {
       cJSON_AddNumberToObject(root, "Value", value);
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
     }
   }
   else
@@ -6311,11 +6121,6 @@ esp_err_t Api::handle_get_telescope_slewing(httpd_req_t *req)
     {
       cJSON_AddBoolToObject(root, "Value", value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -6345,11 +6150,6 @@ esp_err_t Api::handle_get_telescope_slewsettletime(httpd_req_t *req)
     if (check_return(telescope_device->get_slewsettletime(&value), root))
     {
       cJSON_AddNumberToObject(root, "Value", value);
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
     }
   }
   else
@@ -6418,11 +6218,6 @@ esp_err_t Api::handle_get_telescope_targetdeclination(httpd_req_t *req)
     {
       cJSON_AddNumberToObject(root, "Value", value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -6489,11 +6284,6 @@ esp_err_t Api::handle_get_telescope_targetrightascension(httpd_req_t *req)
     if (check_return(telescope_device->get_targetrightascension(&value), root))
     {
       cJSON_AddNumberToObject(root, "Value", value);
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
     }
   }
   else
@@ -6562,11 +6352,6 @@ esp_err_t Api::handle_get_telescope_tracking(httpd_req_t *req)
     {
       cJSON_AddBoolToObject(root, "Value", value);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -6633,11 +6418,6 @@ esp_err_t Api::handle_get_telescope_trackingrate(httpd_req_t *req)
     if (check_return(telescope_device->get_trackingrate(&value), root))
     {
       cJSON_AddNumberToObject(root, "Value", (int)value);
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
     }
   }
   else
@@ -6711,11 +6491,6 @@ esp_err_t Api::handle_get_telescope_trackingrates(httpd_req_t *req)
       }
       cJSON_AddItemToObject(root, "Value", array);
     }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
   }
   else
   {
@@ -6745,11 +6520,6 @@ esp_err_t Api::handle_get_telescope_utcdate(httpd_req_t *req)
     if (check_return(telescope_device->get_utcdate(value), root))
     {
       cJSON_AddStringToObject(root, "Value", value.c_str());
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
     }
   }
   else
@@ -6813,14 +6583,7 @@ esp_err_t Api::handle_put_telescope_abortslew(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    if (check_return(telescope_device->put_abortslew(), root))
-    {
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
+    check_return(telescope_device->put_abortslew(), root);
   }
   else
   {
@@ -6980,14 +6743,7 @@ esp_err_t Api::handle_put_telescope_findhome(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    if (check_return(telescope_device->put_findhome(), root))
-    {
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
+    check_return(telescope_device->put_findhome(), root);
   }
   else
   {
@@ -7052,14 +6808,7 @@ esp_err_t Api::handle_put_telescope_park(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    if (check_return(telescope_device->put_park(), root))
-    {
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
+    check_return(telescope_device->put_park(), root);
   }
   else
   {
@@ -7123,14 +6872,7 @@ esp_err_t Api::handle_put_telescope_setpark(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    if (check_return(telescope_device->put_setpark(), root))
-    {
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
+    check_return(telescope_device->put_setpark(), root);
   }
   else
   {
@@ -7232,14 +6974,7 @@ esp_err_t Api::handle_put_telescope_slewtotargetasync(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    if (check_return(telescope_device->put_slewtotargetasync(), root))
-    {
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
+    check_return(telescope_device->put_slewtotargetasync(), root);
   }
   else
   {
@@ -7341,14 +7076,7 @@ esp_err_t Api::handle_put_telescope_synctotarget(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    if (check_return(telescope_device->put_synctotarget(), root))
-    {
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
+    check_return(telescope_device->put_synctotarget(), root);
   }
   else
   {
@@ -7374,14 +7102,7 @@ esp_err_t Api::handle_put_telescope_unpark(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    if (check_return(telescope_device->put_unpark(), root))
-    {
-    }
-    else
-    {
-      cJSON_Delete(root);
-      return api->send_error_response(req, 400);
-    }
+    check_return(telescope_device->put_unpark(), root);
   }
   else
   {
