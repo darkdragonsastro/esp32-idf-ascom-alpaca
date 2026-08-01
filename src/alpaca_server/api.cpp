@@ -1,6 +1,7 @@
 #include "alpaca_server/api.h"
 
 #include <math.h>
+#include <strings.h>
 
 #include <esp_log.h>
 #include <esp_timer.h>
@@ -648,6 +649,36 @@ static double get_number_param(cJSON *body, const char *key)
   char *endptr;
   double value = strtod(str, &endptr);
   return (*endptr == '\0') ? value : NAN;
+}
+
+// Same story as get_number_param() for the two boolean telescope parameters
+// (Tracking, DoesRefraction): parse_string() stores "True"/"False" as JSON
+// strings, so cJSON_IsBool() never matches and the handlers 400'd every
+// request. Alpaca booleans are the strings "True"/"False" (compared
+// case-insensitively, matching ASCOM's tolerant reference server). Returns
+// 1/0, or -1 when the parameter is absent or malformed. Tolerates a genuine
+// JSON bool too.
+static int get_bool_param(cJSON *body, const char *key)
+{
+  cJSON *item = cJSON_GetObjectItemCaseSensitive(body, key);
+  if (cJSON_IsBool(item))
+  {
+    return cJSON_IsTrue(item) ? 1 : 0;
+  }
+  char *str = cJSON_GetStringValue(item);
+  if (!str || *str == '\0')
+  {
+    return -1;
+  }
+  if (strcasecmp(str, "true") == 0)
+  {
+    return 1;
+  }
+  if (strcasecmp(str, "false") == 0)
+  {
+    return 0;
+  }
+  return -1;
 }
 
 esp_err_t Api::parse_request(httpd_req_t *req, alpaca_request_t *parsed_request)
@@ -5456,10 +5487,10 @@ esp_err_t Api::handle_put_telescope_doesrefraction(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    cJSON *DoesRefraction = cJSON_GetObjectItem(parsed_request.body, "DoesRefraction");
-    if (cJSON_IsBool(DoesRefraction))
+    const int DoesRefraction = get_bool_param(parsed_request.body, "DoesRefraction");
+    if (DoesRefraction >= 0)
     {
-      if (check_return(telescope_device->put_doesrefraction(cJSON_IsTrue(DoesRefraction)), root))
+      if (check_return(telescope_device->put_doesrefraction(DoesRefraction == 1), root))
       {
       }
     }
@@ -6377,10 +6408,10 @@ esp_err_t Api::handle_put_telescope_tracking(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    cJSON *Tracking = (cJSON_GetObjectItem(parsed_request.body, "Tracking"));
-    if (cJSON_IsBool(Tracking))
+    const int Tracking = get_bool_param(parsed_request.body, "Tracking");
+    if (Tracking >= 0)
     {
-      if (check_return(telescope_device->put_tracking(cJSON_IsTrue(Tracking)), root))
+      if (check_return(telescope_device->put_tracking(Tracking == 1), root))
       {
       }
     }
