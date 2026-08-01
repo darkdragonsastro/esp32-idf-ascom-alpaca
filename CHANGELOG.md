@@ -1,3 +1,9 @@
+## 1.3.6 (2026-08-01)
+
+### Fix
+
+- telescope boolean PUT params (Tracking, DoesRefraction) parsed as JSON bools — form-urlencoded "True"/"False" arrive as strings, so both handlers returned bare 400 on every request
+
 ## 1.3.5 (2026-07-11)
 
 ### Fix
