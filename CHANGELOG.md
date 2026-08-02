@@ -1,3 +1,9 @@
+## 1.3.7 (2026-08-02)
+
+### Feat
+
+- per-call error detail: Device::set_error_detail() lets a device explain the specific refusal right before returning an error code; that one response's ErrorMessage becomes "<standard message>: <detail>", then the detail is cleared
+
 ## 1.3.6 (2026-08-01)
 
 ### Fix
