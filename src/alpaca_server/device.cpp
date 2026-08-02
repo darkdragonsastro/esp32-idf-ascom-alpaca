@@ -90,6 +90,45 @@ esp_err_t AlpacaServer::uri_device_type(DeviceType t, char *buf, size_t len)
   return ESP_OK;
 }
 
+// Pending per-call error detail. One slot suffices: esp_http_server runs
+// every URI handler on its single server task and this library never defers
+// handler work (no httpd_queue_work / async request handlers), so a device
+// method and the response built from its return value always execute
+// back-to-back on that task.
+static char s_error_detail[128] = {0};
+
+void Device::set_error_detail(const char *detail)
+{
+  if (detail == NULL)
+  {
+    s_error_detail[0] = '\0';
+    return;
+  }
+
+  strncpy(s_error_detail, detail, sizeof(s_error_detail) - 1);
+  s_error_detail[sizeof(s_error_detail) - 1] = '\0';
+}
+
+size_t AlpacaServer::take_error_detail(char *buf, size_t len)
+{
+  if (len == 0 || s_error_detail[0] == '\0')
+  {
+    s_error_detail[0] = '\0';
+    return 0;
+  }
+
+  strncpy(buf, s_error_detail, len - 1);
+  buf[len - 1] = '\0';
+  s_error_detail[0] = '\0';
+
+  return strlen(buf);
+}
+
+void AlpacaServer::clear_error_detail()
+{
+  s_error_detail[0] = '\0';
+}
+
 Device::Device()
 {
 }

@@ -30,6 +30,14 @@ enum class DeviceType
 esp_err_t friendly_device_type(DeviceType t, char *buf, size_t len);
 esp_err_t uri_device_type(DeviceType t, char *buf, size_t len);
 
+// Internal — used by the response path in api.cpp. Copies the pending
+// per-call error detail (see Device::set_error_detail) into buf and clears
+// it; returns the number of characters copied, 0 when no detail is pending.
+size_t take_error_detail(char *buf, size_t len);
+
+// Internal — drops any pending per-call error detail.
+void clear_error_detail();
+
 class Device
 {
 public:
@@ -52,6 +60,19 @@ public:
   virtual esp_err_t get_interfaceversion(uint32_t *version) = 0;
   virtual esp_err_t get_name(char *buf, size_t len) = 0;
   virtual esp_err_t get_supportedactions(std::vector<std::string> &actions) = 0;
+
+protected:
+  // Explain the error you are about to return: call immediately before
+  // returning a non-OK Alpaca error code from a device method, and the
+  // response for that call reports ErrorMessage as
+  // "<standard message>: <detail>". The detail is consumed (cleared) when
+  // that response is built, so it never outlives the call that set it; when
+  // no detail is set, responses are unchanged. A single pending slot is
+  // safe because esp_http_server dispatches every URI handler on its one
+  // server task and this library never defers handler work, so a device
+  // method and the response built from its return value always run
+  // back-to-back on that task.
+  static void set_error_detail(const char *detail);
 
 private:
   friend class Api;

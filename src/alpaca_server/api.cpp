@@ -683,6 +683,11 @@ static int get_bool_param(cJSON *body, const char *key)
 
 esp_err_t Api::parse_request(httpd_req_t *req, alpaca_request_t *parsed_request)
 {
+  // Belt and braces: no per-call error detail from an earlier request may
+  // survive into this one (e.g. one set alongside an error return whose
+  // handler never reached set_error()).
+  clear_error_detail();
+
   parsed_request->body = cJSON_CreateObject();
   parsed_request->client_id = 0;
   parsed_request->client_transaction_id = 0;
@@ -1025,11 +1030,31 @@ void set_error(esp_err_t err, cJSON *root)
   char buf[128];
   esp_err_t msgErr = s_err_msg_func(err, buf, sizeof(buf));
 
+  // Per-call detail set by the device right before it returned this error
+  // (Device::set_error_detail). Consuming it here clears it, so it applies
+  // to exactly this response.
+  char detail[128];
+  size_t detail_len = take_error_detail(detail, sizeof(detail));
+
   cJSON_AddNumberToObject(root, "ErrorNumber", err);
 
   if (msgErr == ESP_OK)
   {
-    cJSON_AddStringToObject(root, "ErrorMessage", buf);
+    if (detail_len > 0)
+    {
+      // Worst case: 127-char standard message + ": " + 127-char detail + NUL.
+      char full[264];
+      snprintf(full, sizeof(full), "%s: %s", buf, detail);
+      cJSON_AddStringToObject(root, "ErrorMessage", full);
+    }
+    else
+    {
+      cJSON_AddStringToObject(root, "ErrorMessage", buf);
+    }
+  }
+  else if (detail_len > 0)
+  {
+    cJSON_AddStringToObject(root, "ErrorMessage", detail);
   }
   else
   {
@@ -1041,6 +1066,9 @@ bool check_return(esp_err_t err, cJSON *root)
 {
   if (err == ALPACA_OK)
   {
+    // A well-behaved device only sets a detail when returning an error, but
+    // drop anything stale so it cannot leak into a later error response.
+    clear_error_detail();
     return true;
   }
   else
