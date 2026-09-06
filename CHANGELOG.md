@@ -1,3 +1,9 @@
+## 1.4.0 (2026-09-06)
+
+### Feat
+
+- **api**: Platform 7 members and unsigned transaction IDs (#3)
+
 ## 1.4.0-b1 (2026-09-06)
 
 ### Fix
