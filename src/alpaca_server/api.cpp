@@ -6,9 +6,37 @@
 #include <esp_log.h>
 #include <esp_timer.h>
 #include <mbedtls/md5.h>
+#include <sys/time.h>
+#include <time.h>
 
 static const char *TAG = "alpaca_server_api";
 static AlpacaServer::custom_error_message_handler_t s_err_msg_func = &AlpacaServer::error_message;
+
+// Alpaca ClientID and ClientTransactionID are unsigned 32-bit integers. Any
+// value that is not a plain run of digits in range (negative, blank, text,
+// too large) is treated as absent and echoed back as 0, which is what the
+// specification and ConformU expect.
+static uint32_t parse_uint32_param(const char *value)
+{
+  if (value == NULL || *value == '\0')
+  {
+    return 0;
+  }
+  uint64_t result = 0;
+  for (const char *c = value; *c != '\0'; c++)
+  {
+    if (*c < '0' || *c > '9')
+    {
+      return 0;
+    }
+    result = result * 10 + (uint64_t)(*c - '0');
+    if (result > UINT32_MAX)
+    {
+      return 0;
+    }
+  }
+  return (uint32_t)result;
+}
 
 #define REGISTER_DEVICE_ROUTE(device_type, endpoint, device_number, http_method, name)                                 \
   {                                                                                                                    \
@@ -228,6 +256,10 @@ void Api::register_device_routes(httpd_handle_t server, size_t device_number, De
   REGISTER_DEVICE_ROUTE(device_type_str, "interfaceversion", device_number, HTTP_GET, get_interfaceversion);
   REGISTER_DEVICE_ROUTE(device_type_str, "name", device_number, HTTP_GET, get_name);
   REGISTER_DEVICE_ROUTE(device_type_str, "supportedactions", device_number, HTTP_GET, get_supportedactions);
+  REGISTER_DEVICE_ROUTE(device_type_str, "connect", device_number, HTTP_PUT, put_connect);
+  REGISTER_DEVICE_ROUTE(device_type_str, "disconnect", device_number, HTTP_PUT, put_disconnect);
+  REGISTER_DEVICE_ROUTE(device_type_str, "connecting", device_number, HTTP_GET, get_connecting);
+  REGISTER_DEVICE_ROUTE(device_type_str, "devicestate", device_number, HTTP_GET, get_devicestate);
 
   switch (device->device_type())
   {
@@ -495,11 +527,23 @@ void Api::register_telescope_routes(httpd_handle_t server, size_t device_number,
   REGISTER_DEVICE_ROUTE("telescope", "canmoveaxis", device_number, HTTP_GET, get_telescope_canmoveaxis);
   REGISTER_DEVICE_ROUTE("telescope", "canpark", device_number, HTTP_GET, get_telescope_canpark);
   REGISTER_DEVICE_ROUTE("telescope", "canpulseguide", device_number, HTTP_GET, get_telescope_canpulseguide);
-  REGISTER_DEVICE_ROUTE("telescope", "cansetdeclinationrate", device_number, HTTP_GET, get_telescope_cansetdeclinationrate);
+  REGISTER_DEVICE_ROUTE(
+      "telescope",
+      "cansetdeclinationrate",
+      device_number,
+      HTTP_GET,
+      get_telescope_cansetdeclinationrate
+  );
   REGISTER_DEVICE_ROUTE("telescope", "cansetguiderates", device_number, HTTP_GET, get_telescope_cansetguiderates);
   REGISTER_DEVICE_ROUTE("telescope", "cansetpark", device_number, HTTP_GET, get_telescope_cansetpark);
   REGISTER_DEVICE_ROUTE("telescope", "cansetpierside", device_number, HTTP_GET, get_telescope_cansetpierside);
-  REGISTER_DEVICE_ROUTE("telescope", "cansetrightascensionrate", device_number, HTTP_GET, get_telescope_cansetrightascensionrate);
+  REGISTER_DEVICE_ROUTE(
+      "telescope",
+      "cansetrightascensionrate",
+      device_number,
+      HTTP_GET,
+      get_telescope_cansetrightascensionrate
+  );
   REGISTER_DEVICE_ROUTE("telescope", "cansettracking", device_number, HTTP_GET, get_telescope_cansettracking);
   REGISTER_DEVICE_ROUTE("telescope", "canslew", device_number, HTTP_GET, get_telescope_canslew);
   REGISTER_DEVICE_ROUTE("telescope", "canslewaltaz", device_number, HTTP_GET, get_telescope_canslewaltaz);
@@ -510,12 +554,30 @@ void Api::register_telescope_routes(httpd_handle_t server, size_t device_number,
   REGISTER_DEVICE_ROUTE("telescope", "canunpark", device_number, HTTP_GET, get_telescope_canunpark);
   REGISTER_DEVICE_ROUTE("telescope", "declination", device_number, HTTP_GET, get_telescope_declination);
   REGISTER_DEVICE_ROUTE("telescope", "declinationrate", device_number, HTTP_GET, get_telescope_declinationrate);
-  REGISTER_DEVICE_ROUTE("telescope", "destinationsideofpier", device_number, HTTP_GET, get_telescope_destinationsideofpier);
+  REGISTER_DEVICE_ROUTE(
+      "telescope",
+      "destinationsideofpier",
+      device_number,
+      HTTP_GET,
+      get_telescope_destinationsideofpier
+  );
   REGISTER_DEVICE_ROUTE("telescope", "doesrefraction", device_number, HTTP_GET, get_telescope_doesrefraction);
   REGISTER_DEVICE_ROUTE("telescope", "equatorialsystem", device_number, HTTP_GET, get_telescope_equatorialsystem);
   REGISTER_DEVICE_ROUTE("telescope", "focallength", device_number, HTTP_GET, get_telescope_focallength);
-  REGISTER_DEVICE_ROUTE("telescope", "guideratedeclination", device_number, HTTP_GET, get_telescope_guideratedeclination);
-  REGISTER_DEVICE_ROUTE("telescope", "guideraterightascension", device_number, HTTP_GET, get_telescope_guideraterightascension);
+  REGISTER_DEVICE_ROUTE(
+      "telescope",
+      "guideratedeclination",
+      device_number,
+      HTTP_GET,
+      get_telescope_guideratedeclination
+  );
+  REGISTER_DEVICE_ROUTE(
+      "telescope",
+      "guideraterightascension",
+      device_number,
+      HTTP_GET,
+      get_telescope_guideraterightascension
+  );
   REGISTER_DEVICE_ROUTE("telescope", "ispulseguiding", device_number, HTTP_GET, get_telescope_ispulseguiding);
   REGISTER_DEVICE_ROUTE("telescope", "rightascension", device_number, HTTP_GET, get_telescope_rightascension);
   REGISTER_DEVICE_ROUTE("telescope", "rightascensionrate", device_number, HTTP_GET, get_telescope_rightascensionrate);
@@ -527,7 +589,13 @@ void Api::register_telescope_routes(httpd_handle_t server, size_t device_number,
   REGISTER_DEVICE_ROUTE("telescope", "slewing", device_number, HTTP_GET, get_telescope_slewing);
   REGISTER_DEVICE_ROUTE("telescope", "slewsettletime", device_number, HTTP_GET, get_telescope_slewsettletime);
   REGISTER_DEVICE_ROUTE("telescope", "targetdeclination", device_number, HTTP_GET, get_telescope_targetdeclination);
-  REGISTER_DEVICE_ROUTE("telescope", "targetrightascension", device_number, HTTP_GET, get_telescope_targetrightascension);
+  REGISTER_DEVICE_ROUTE(
+      "telescope",
+      "targetrightascension",
+      device_number,
+      HTTP_GET,
+      get_telescope_targetrightascension
+  );
   REGISTER_DEVICE_ROUTE("telescope", "tracking", device_number, HTTP_GET, get_telescope_tracking);
   REGISTER_DEVICE_ROUTE("telescope", "trackingrate", device_number, HTTP_GET, get_telescope_trackingrate);
   REGISTER_DEVICE_ROUTE("telescope", "trackingrates", device_number, HTTP_GET, get_telescope_trackingrates);
@@ -536,8 +604,20 @@ void Api::register_telescope_routes(httpd_handle_t server, size_t device_number,
   REGISTER_DEVICE_ROUTE("telescope", "declinationrate", device_number, HTTP_PUT, put_telescope_declinationrate);
   REGISTER_DEVICE_ROUTE("telescope", "doesrefraction", device_number, HTTP_PUT, put_telescope_doesrefraction);
   REGISTER_DEVICE_ROUTE("telescope", "findhome", device_number, HTTP_PUT, put_telescope_findhome);
-  REGISTER_DEVICE_ROUTE("telescope", "guideratedeclination", device_number, HTTP_PUT, put_telescope_guideratedeclination);
-  REGISTER_DEVICE_ROUTE("telescope", "guideraterightascension", device_number, HTTP_PUT, put_telescope_guideraterightascension);
+  REGISTER_DEVICE_ROUTE(
+      "telescope",
+      "guideratedeclination",
+      device_number,
+      HTTP_PUT,
+      put_telescope_guideratedeclination
+  );
+  REGISTER_DEVICE_ROUTE(
+      "telescope",
+      "guideraterightascension",
+      device_number,
+      HTTP_PUT,
+      put_telescope_guideraterightascension
+  );
   REGISTER_DEVICE_ROUTE("telescope", "moveaxis", device_number, HTTP_PUT, put_telescope_moveaxis);
   REGISTER_DEVICE_ROUTE("telescope", "park", device_number, HTTP_PUT, put_telescope_park);
   REGISTER_DEVICE_ROUTE("telescope", "pulseguide", device_number, HTTP_PUT, put_telescope_pulseguide);
@@ -549,7 +629,13 @@ void Api::register_telescope_routes(httpd_handle_t server, size_t device_number,
   REGISTER_DEVICE_ROUTE("telescope", "sitelongitude", device_number, HTTP_PUT, put_telescope_sitelongitude);
   REGISTER_DEVICE_ROUTE("telescope", "slewsettletime", device_number, HTTP_PUT, put_telescope_slewsettletime);
   REGISTER_DEVICE_ROUTE("telescope", "slewtoaltazasync", device_number, HTTP_PUT, put_telescope_slewtoaltazasync);
-  REGISTER_DEVICE_ROUTE("telescope", "slewtocoordinatesasync", device_number, HTTP_PUT, put_telescope_slewtocoordinatesasync);
+  REGISTER_DEVICE_ROUTE(
+      "telescope",
+      "slewtocoordinatesasync",
+      device_number,
+      HTTP_PUT,
+      put_telescope_slewtocoordinatesasync
+  );
   REGISTER_DEVICE_ROUTE("telescope", "slewtotargetasync", device_number, HTTP_PUT, put_telescope_slewtotargetasync);
   // Alias: INDI's alpaca bridge (indi_alpaca_telescope) slews via the synchronous
   // endpoint name then polls /slewing — i.e. async semantics under the sync name.
@@ -560,7 +646,13 @@ void Api::register_telescope_routes(httpd_handle_t server, size_t device_number,
   REGISTER_DEVICE_ROUTE("telescope", "synctocoordinates", device_number, HTTP_PUT, put_telescope_synctocoordinates);
   REGISTER_DEVICE_ROUTE("telescope", "synctotarget", device_number, HTTP_PUT, put_telescope_synctotarget);
   REGISTER_DEVICE_ROUTE("telescope", "targetdeclination", device_number, HTTP_PUT, put_telescope_targetdeclination);
-  REGISTER_DEVICE_ROUTE("telescope", "targetrightascension", device_number, HTTP_PUT, put_telescope_targetrightascension);
+  REGISTER_DEVICE_ROUTE(
+      "telescope",
+      "targetrightascension",
+      device_number,
+      HTTP_PUT,
+      put_telescope_targetrightascension
+  );
   REGISTER_DEVICE_ROUTE("telescope", "tracking", device_number, HTTP_PUT, put_telescope_tracking);
   REGISTER_DEVICE_ROUTE("telescope", "trackingrate", device_number, HTTP_PUT, put_telescope_trackingrate);
   REGISTER_DEVICE_ROUTE("telescope", "unpark", device_number, HTTP_PUT, put_telescope_unpark);
@@ -594,11 +686,11 @@ void parse_string(alpaca_request_t *req, char *query, bool case_sensitive = true
     {
       if (strcmp(key, "ClientTransactionID") == 0)
       {
-        req->client_transaction_id = atoi(value);
+        req->client_transaction_id = parse_uint32_param(value);
       }
       else if (strcmp(key, "ClientID") == 0)
       {
-        req->client_id = atoi(value);
+        req->client_id = parse_uint32_param(value);
       }
       else
       {
@@ -611,13 +703,13 @@ void parse_string(alpaca_request_t *req, char *query, bool case_sensitive = true
       {
         ESP_LOGD(TAG, "ClientTransactionID: '%s'", value);
 
-        req->client_transaction_id = atoi(value);
+        req->client_transaction_id = parse_uint32_param(value);
       }
       else if (strcasecmp(key, "ClientID") == 0)
       {
         ESP_LOGD(TAG, "ClientID: '%s'", value);
 
-        req->client_id = atoi(value);
+        req->client_id = parse_uint32_param(value);
       }
       else
       {
@@ -628,7 +720,6 @@ void parse_string(alpaca_request_t *req, char *query, bool case_sensitive = true
     query = next;
   }
 }
-
 
 // Alpaca PUT parameters arrive form-urlencoded; parse_string() stores them as
 // JSON *strings*, so cJSON_GetNumberValue() on them yields NAN. Parse one as a
@@ -805,7 +896,7 @@ esp_err_t Api::parse_request(httpd_req_t *req, alpaca_request_t *parsed_request)
     }
     ESP_LOGD(TAG, "%s", debugstr);
 
-    ESP_LOGD(TAG, "ClientTransactionID: %ld", parsed_request->client_transaction_id);
+    ESP_LOGD(TAG, "ClientTransactionID: %lu", (unsigned long)parsed_request->client_transaction_id);
     ESP_LOGD(TAG, "ClientID: %ld", parsed_request->client_id);
   }
 
@@ -817,18 +908,6 @@ esp_err_t Api::parse_request(httpd_req_t *req, alpaca_request_t *parsed_request)
   if (parsed_request->device_number >= _devices[parsed_request->device_type].size())
   {
     return ESP_ERR_NOT_FOUND;
-  }
-
-  if (parsed_request->client_transaction_id <= 0)
-  {
-    // TODO: Add optional strict check here
-    return ESP_OK;
-  }
-
-  if (parsed_request->client_id <= 0)
-  {
-    // TODO: Add optional strict check here
-    return ESP_OK;
   }
 
   return ESP_OK;
@@ -1282,6 +1361,176 @@ esp_err_t Api::handle_put_connected(httpd_req_t *req)
   {
     cJSON_Delete(root);
     return api->send_error_response(req, 400);
+  }
+
+  return api->send_json_response(req, &parsed_request, root);
+}
+
+esp_err_t Api::handle_put_connect(httpd_req_t *req)
+{
+  Api *api = (Api *)req->user_ctx;
+  alpaca_request_t parsed_request;
+  esp_err_t err = api->parse_request(req, &parsed_request);
+  if (err != ESP_OK)
+  {
+    api->send_error_response(req, err == ESP_ERR_NOT_FOUND ? 404 : 400);
+    return err;
+  }
+  cJSON *root = cJSON_CreateObject();
+  Device *device = api->_devices[parsed_request.device_type][parsed_request.device_number];
+
+  check_return(device->connect(), root);
+
+  return api->send_json_response(req, &parsed_request, root);
+}
+
+esp_err_t Api::handle_put_disconnect(httpd_req_t *req)
+{
+  Api *api = (Api *)req->user_ctx;
+  alpaca_request_t parsed_request;
+  esp_err_t err = api->parse_request(req, &parsed_request);
+  if (err != ESP_OK)
+  {
+    api->send_error_response(req, err == ESP_ERR_NOT_FOUND ? 404 : 400);
+    return err;
+  }
+  cJSON *root = cJSON_CreateObject();
+  Device *device = api->_devices[parsed_request.device_type][parsed_request.device_number];
+
+  check_return(device->disconnect(), root);
+
+  return api->send_json_response(req, &parsed_request, root);
+}
+
+esp_err_t Api::handle_get_connecting(httpd_req_t *req)
+{
+  Api *api = (Api *)req->user_ctx;
+  alpaca_request_t parsed_request;
+  esp_err_t err = api->parse_request(req, &parsed_request);
+  if (err != ESP_OK)
+  {
+    api->send_error_response(req, err == ESP_ERR_NOT_FOUND ? 404 : 400);
+    return err;
+  }
+  cJSON *root = cJSON_CreateObject();
+  Device *device = api->_devices[parsed_request.device_type][parsed_request.device_number];
+
+  bool connecting = false;
+  if (check_return(device->get_connecting(&connecting), root))
+  {
+    cJSON_AddBoolToObject(root, "Value", connecting);
+  }
+
+  return api->send_json_response(req, &parsed_request, root);
+}
+
+// One {"Name": ..., "Value": ...} entry in a DeviceState array.
+static void add_state_bool(cJSON *state, const char *name, bool value)
+{
+  cJSON *item = cJSON_CreateObject();
+  cJSON_AddStringToObject(item, "Name", name);
+  cJSON_AddBoolToObject(item, "Value", value);
+  cJSON_AddItemToArray(state, item);
+}
+
+static void add_state_number(cJSON *state, const char *name, double value)
+{
+  cJSON *item = cJSON_CreateObject();
+  cJSON_AddStringToObject(item, "Name", name);
+  cJSON_AddNumberToObject(item, "Value", value);
+  cJSON_AddItemToArray(state, item);
+}
+
+// DeviceState returns the device's operational properties in one call. Only
+// properties whose getter succeeds are included, as the specification
+// allows; a NotImplemented or NotConnected property is simply left out.
+// TimeStamp is included when the clock has been set.
+esp_err_t Api::handle_get_devicestate(httpd_req_t *req)
+{
+  Api *api = (Api *)req->user_ctx;
+  alpaca_request_t parsed_request;
+  esp_err_t err = api->parse_request(req, &parsed_request);
+  if (err != ESP_OK)
+  {
+    api->send_error_response(req, err == ESP_ERR_NOT_FOUND ? 404 : 400);
+    return err;
+  }
+  cJSON *root = cJSON_CreateObject();
+  Device *device = api->_devices[parsed_request.device_type][parsed_request.device_number];
+
+  cJSON *state = cJSON_AddArrayToObject(root, "Value");
+
+  switch (device->device_type())
+  {
+  case DeviceType::Dome:
+  {
+    Dome *dome = (Dome *)device;
+    double d = 0;
+    bool b = false;
+    Dome::ShutterState shutter = Dome::ShutterState::Error;
+    if (dome->get_altitude(&d) == ALPACA_OK)
+    {
+      add_state_number(state, "Altitude", d);
+    }
+    if (dome->get_athome(&b) == ALPACA_OK)
+    {
+      add_state_bool(state, "AtHome", b);
+    }
+    if (dome->get_atpark(&b) == ALPACA_OK)
+    {
+      add_state_bool(state, "AtPark", b);
+    }
+    if (dome->get_azimuth(&d) == ALPACA_OK)
+    {
+      add_state_number(state, "Azimuth", d);
+    }
+    if (dome->get_shutterstatus(&shutter) == ALPACA_OK)
+    {
+      add_state_number(state, "ShutterStatus", (double)shutter);
+    }
+    if (dome->get_slewing(&b) == ALPACA_OK)
+    {
+      add_state_bool(state, "Slewing", b);
+    }
+    break;
+  }
+  case DeviceType::SafetyMonitor:
+  {
+    bool b = false;
+    if (((SafetyMonitor *)device)->get_issafe(&b) == ALPACA_OK)
+    {
+      add_state_bool(state, "IsSafe", b);
+    }
+    break;
+  }
+  default:
+    break;
+  }
+  clear_error_detail();
+
+  struct timeval now;
+  gettimeofday(&now, NULL);
+  struct tm utc;
+  gmtime_r(&now.tv_sec, &utc);
+  if (utc.tm_year + 1900 >= 2020)
+  {
+    char stamp[64];
+    snprintf(
+        stamp,
+        sizeof(stamp),
+        "%04d-%02d-%02dT%02d:%02d:%02d.%03ldZ",
+        utc.tm_year + 1900,
+        utc.tm_mon + 1,
+        utc.tm_mday,
+        utc.tm_hour,
+        utc.tm_min,
+        utc.tm_sec,
+        (long)(now.tv_usec / 1000)
+    );
+    cJSON *item = cJSON_CreateObject();
+    cJSON_AddStringToObject(item, "Name", "TimeStamp");
+    cJSON_AddStringToObject(item, "Value", stamp);
+    cJSON_AddItemToArray(state, item);
   }
 
   return api->send_json_response(req, &parsed_request, root);
@@ -5642,8 +5891,7 @@ esp_err_t Api::handle_put_telescope_guideratedeclination(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    double GuideRateDeclination =
-        get_number_param(parsed_request.body, "GuideRateDeclination");
+    double GuideRateDeclination = get_number_param(parsed_request.body, "GuideRateDeclination");
     if (!isnan(GuideRateDeclination))
     {
       if (check_return(telescope_device->put_guideratedeclination(GuideRateDeclination), root))
@@ -5710,8 +5958,7 @@ esp_err_t Api::handle_put_telescope_guideraterightascension(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    double GuideRateRightAscension =
-        get_number_param(parsed_request.body, "GuideRateRightAscension");
+    double GuideRateRightAscension = get_number_param(parsed_request.body, "GuideRateRightAscension");
     if (!isnan(GuideRateRightAscension))
     {
       if (check_return(telescope_device->put_guideraterightascension(GuideRateRightAscension), root))
@@ -6897,7 +7144,11 @@ esp_err_t Api::handle_put_telescope_pulseguide(httpd_req_t *req)
     double Duration_value = get_number_param(parsed_request.body, "Duration");
     if (!isnan(Direction_value) && !isnan(Duration_value))
     {
-      if (check_return(telescope_device->put_pulseguide((Telescope::GuideDirection)(int32_t)Direction_value, (int32_t)Duration_value), root))
+      if (check_return(
+              telescope_device
+                  ->put_pulseguide((Telescope::GuideDirection)(int32_t)Direction_value, (int32_t)Duration_value),
+              root
+          ))
       {
       }
     }

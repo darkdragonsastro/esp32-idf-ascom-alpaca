@@ -41,9 +41,9 @@ custom_error_message_handler_t set_custom_error_message_handler(
 typedef struct
 {
   cJSON *body;
-  int32_t client_id;
-  int32_t client_transaction_id;
-  int32_t server_transaction_id;
+  uint32_t client_id;
+  uint32_t client_transaction_id;
+  uint32_t server_transaction_id;
   int64_t start_time;
 
   uint8_t device_number;
@@ -114,6 +114,11 @@ private:
   static esp_err_t handle_get_interfaceversion(httpd_req_t *req);
   static esp_err_t handle_get_name(httpd_req_t *req);
   static esp_err_t handle_get_supportedactions(httpd_req_t *req);
+  // Platform 7 (interface v3 and later) members, common to all device types.
+  static esp_err_t handle_put_connect(httpd_req_t *req);
+  static esp_err_t handle_put_disconnect(httpd_req_t *req);
+  static esp_err_t handle_get_connecting(httpd_req_t *req);
+  static esp_err_t handle_get_devicestate(httpd_req_t *req);
 
   // Camera API
 
