@@ -1,3 +1,9 @@
+## 1.4.0-b1 (2026-09-06)
+
+### Fix
+
+- **discovery**: keep the UDP socket across receive timeouts
+
 ## 1.4.0-b0 (2026-09-06)
 
 ### Feat
