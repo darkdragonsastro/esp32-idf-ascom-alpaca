@@ -1,5 +1,7 @@
 #include "alpaca_server/device.h"
 
+#include "alpaca_server/api.h"
+
 #include <string.h>
 
 using namespace AlpacaServer;
@@ -135,6 +137,22 @@ Device::Device()
 
 Device::~Device()
 {
+}
+
+esp_err_t Device::connect()
+{
+  return set_connected(true);
+}
+
+esp_err_t Device::disconnect()
+{
+  return set_connected(false);
+}
+
+esp_err_t Device::get_connecting(bool *connecting)
+{
+  *connecting = false;
+  return ALPACA_OK;
 }
 
 AlpacaServer::DeviceType Camera::device_type()

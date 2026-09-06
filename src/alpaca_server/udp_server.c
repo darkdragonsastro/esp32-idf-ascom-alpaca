@@ -43,8 +43,11 @@ static void udp_server_task(void *pvParameters)
     int sock = socket(addr_family, SOCK_DGRAM, ip_protocol);
     if (sock < 0)
     {
+      // Retry rather than end the task: discovery must not die for good on a
+      // transient descriptor shortage.
       ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
-      break;
+      vTaskDelay(pdMS_TO_TICKS(1000));
+      continue;
     }
     ESP_LOGD(TAG, "Socket created");
 
@@ -58,6 +61,9 @@ static void udp_server_task(void *pvParameters)
     if (err < 0)
     {
       ESP_LOGE(TAG, "Socket unable to bind: errno %d", errno);
+      close(sock);
+      vTaskDelay(pdMS_TO_TICKS(1000));
+      continue;
     }
     ESP_LOGD(TAG, "Socket bound, port %d", udp_server_handle->port);
 
@@ -73,7 +79,16 @@ static void udp_server_task(void *pvParameters)
       // Error occurred during receiving
       if (len < 0)
       {
-        ESP_LOGD(TAG, "recvfrom failed: errno %d", errno);
+        // The receive timeout is not an error. Recreating the socket here
+        // (the old behaviour, ~100 times a second) lost any probe that
+        // arrived between close and bind, and left queued replies pointing
+        // at a closed descriptor.
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+        {
+          continue;
+        }
+
+        ESP_LOGE(TAG, "recvfrom failed: errno %d", errno);
         break;
       }
       // Data received

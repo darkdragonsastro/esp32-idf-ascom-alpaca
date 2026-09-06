@@ -61,6 +61,15 @@ public:
   virtual esp_err_t get_name(char *buf, size_t len) = 0;
   virtual esp_err_t get_supportedactions(std::vector<std::string> &actions) = 0;
 
+  // Platform 7 (interface v3 and later) members. The defaults model a device
+  // that connects synchronously: Connect/Disconnect set Connected and
+  // Connecting is always false. Devices with a slow connect sequence override
+  // all three. DeviceState is assembled by the API from the device's own
+  // operational getters, so nothing to override for it.
+  virtual esp_err_t connect();
+  virtual esp_err_t disconnect();
+  virtual esp_err_t get_connecting(bool *connecting);
+
 protected:
   // Explain the error you are about to return: call immediately before
   // returning a non-OK Alpaca error code from a device method, and the
