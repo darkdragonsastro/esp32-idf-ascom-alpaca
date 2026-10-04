@@ -1,3 +1,9 @@
+## 1.4.1 (2026-10-04)
+
+### Fix
+
+- **api**: number each device within its type; refuse long management queries (#4) (#5)
+
 ## 1.4.0 (2026-09-06)
 
 ### Feat
