@@ -248,7 +248,7 @@ public:
   virtual esp_err_t get_windspeed(double *windspeed) = 0;
   virtual esp_err_t put_refresh() = 0;
   virtual esp_err_t get_sensordescription(const char *sensorname, char *buf, size_t len) = 0;
-  virtual esp_err_t get_timesincelastupdate(double *timesincelastupdate) = 0;
+  virtual esp_err_t get_timesincelastupdate(const char *sensorname, double *timesincelastupdate) = 0;
 };
 
 class Rotator : public Device
