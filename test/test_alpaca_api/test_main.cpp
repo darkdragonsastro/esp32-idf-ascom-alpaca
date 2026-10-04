@@ -1,86 +1,9 @@
 // Alpaca protocol tests for api.cpp, run natively against fake devices. The
 // expected results follow ASCOM ConformU's protocol checks in strict mode.
 
-#include "fake_devices.h"
-#include "fake_httpd.h"
+#include "test_helpers.h"
 
-#include <string>
-#include <unity.h>
-#include <vector>
-
-namespace
-{
-const char *CLIENT_IDS = "ClientID=12345&ClientTransactionID=67890";
-
-// One Api with the given devices, registered on the fake server.
-struct Server
-{
-  std::vector<Device *> devices;
-  Api api;
-
-  explicit Server(std::vector<Device *> list)
-      : devices(list), api(devices, "test-server", "Test Server", "Test Maker", "1.2.3", "Test Site")
-  {
-    fake_httpd_reset();
-    api.register_routes(nullptr);
-  }
-};
-
-FakeResponse get(const std::string &path, const std::string &query = CLIENT_IDS)
-{
-  return fake_request(HTTP_GET, query.empty() ? path : path + "?" + query);
-}
-
-FakeResponse put(const std::string &path, const std::string &body)
-{
-  return fake_request(HTTP_PUT, path, body);
-}
-
-cJSON *field(const FakeResponse &r, const char *key)
-{
-  return cJSON_GetObjectItemCaseSensitive(r.json.get(), key);
-}
-
-double number(const FakeResponse &r, const char *key)
-{
-  cJSON *item = field(r, key);
-  TEST_ASSERT_TRUE_MESSAGE(cJSON_IsNumber(item), key);
-  return cJSON_GetNumberValue(item);
-}
-
-// HTTP 200 with no Alpaca error.
-void assert_ok(const FakeResponse &r)
-{
-  TEST_ASSERT_TRUE(r.routed);
-  TEST_ASSERT_EQUAL_INT(200, r.status);
-  TEST_ASSERT_NOT_NULL(r.json.get());
-  cJSON *error_number = field(r, "ErrorNumber");
-  if (error_number)
-  {
-    TEST_ASSERT_EQUAL_INT(0, (int)cJSON_GetNumberValue(error_number));
-  }
-  TEST_ASSERT_EQUAL_INT(ESP_OK, r.handler_ret);
-}
-
-// HTTP 400, or HTTP 200 with InvalidValue: ConformU accepts either for a bad
-// parameter value.
-void assert_bad_value(const FakeResponse &r)
-{
-  if (r.status == 200)
-  {
-    TEST_ASSERT_EQUAL_INT(ALPACA_ERR_INVALID_VALUE, (int)number(r, "ErrorNumber"));
-  }
-  else
-  {
-    TEST_ASSERT_EQUAL_INT(400, r.status);
-  }
-}
-
-void assert_4xx(const FakeResponse &r)
-{
-  TEST_ASSERT_TRUE_MESSAGE(r.status >= 400 && r.status < 500, "expected a 4xx status");
-}
-} // namespace
+void run_device_protocol_tests();
 
 void setUp()
 {
@@ -336,6 +259,7 @@ void test_every_device_type_routes_to_its_device()
     {"/api/v1/switch/0/maxswitch", &sw.last_call, "get_maxswitch"},
     {"/api/v1/telescope/0/altitude", &scope.last_call, "get_altitude"},
   };
+
   for (auto &call : calls)
   {
     assert_ok(get(call.path));
@@ -360,5 +284,6 @@ int main(int argc, char **argv)
   RUN_TEST(test_bad_urls_get_a_4xx_status);
   RUN_TEST(test_device_error_is_reported_in_the_body);
   RUN_TEST(test_every_device_type_routes_to_its_device);
+  run_device_protocol_tests();
   return UNITY_END();
 }
