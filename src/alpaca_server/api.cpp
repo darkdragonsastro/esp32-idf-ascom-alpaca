@@ -3841,7 +3841,7 @@ esp_err_t Api::handle_get_observingconditions_sensordescription(httpd_req_t *req
   {
     ObservingConditions *observingconditions = (ObservingConditions *)device;
 
-    cJSON *sensor_name = cJSON_GetObjectItemCaseSensitive(parsed_request.body, "SensorName");
+    cJSON *sensor_name = cJSON_GetObjectItem(parsed_request.body, "SensorName");
     if (!cJSON_IsString(sensor_name))
     {
       cJSON_Delete(root);
@@ -3883,7 +3883,7 @@ esp_err_t Api::handle_get_observingconditions_timesincelastupdate(httpd_req_t *r
   {
     ObservingConditions *observingconditions = (ObservingConditions *)device;
 
-    cJSON *sensor_name = cJSON_GetObjectItemCaseSensitive(parsed_request.body, "SensorName");
+    cJSON *sensor_name = cJSON_GetObjectItem(parsed_request.body, "SensorName");
     if (!cJSON_IsString(sensor_name))
     {
       cJSON_Delete(root);
