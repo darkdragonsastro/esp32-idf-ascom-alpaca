@@ -85,7 +85,9 @@ protected:
 
 private:
   friend class Api;
-  uint8_t _number;
+  // The device's number within its type (0, 1, ...). Api sets it before it
+  // hashes the UniqueID.
+  uint8_t _number = 0;
 
   char _unique_id[33];
 };
