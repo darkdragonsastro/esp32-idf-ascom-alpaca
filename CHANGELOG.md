@@ -1,3 +1,9 @@
+## 1.4.2 (2026-10-04)
+
+### Fix
+
+- **api**: free the request body on error responses; make the standalone build work (#9)
+
 ## 1.4.1 (2026-10-04)
 
 ### Fix
