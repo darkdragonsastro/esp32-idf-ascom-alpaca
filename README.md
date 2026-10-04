@@ -20,6 +20,10 @@ Please see the `examples` folder for a demonstration that shows an example Roll 
   - Switch
 - UDP Discovery
 
+## Tests
+
+`pio test -e native` runs the Alpaca protocol tests on your computer. They send requests through the real handlers in `src/alpaca_server/api.cpp` to fake devices and check the responses against the rules ASCOM ConformU uses. No ESP32 is needed.
+
 ## TODO
 
 - HTTP Device API
