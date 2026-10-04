@@ -330,7 +330,7 @@ private:
       uint16_t status_code = 200
   );
 
-  esp_err_t send_error_response(httpd_req_t *req, uint16_t status_code);
+  esp_err_t send_error_response(httpd_req_t *req, alpaca_request_t *parsed_request, uint16_t status_code);
 
   esp_err_t generate_unique_id(
       const char *server_id,
