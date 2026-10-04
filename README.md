@@ -1,10 +1,10 @@
 # esp32-idf-ascom-alpaca
 
-This is a native ESP32 implementation of the ASCOM Alpaca http interface. It has implementations for all ASCOM device types except Telescope and Camera. Pull requests are welcome!
+This is a native ESP32 implementation of the ASCOM Alpaca http interface. It has implementations for all ASCOM device types except Camera. Pull requests are welcome!
 
 This is part of the code that powers [Dark Dragons Astronomy's](https://darkdragonsastro.com) Alpaca native devices. We decided to give back to the community and open source a part of our stack.
 
-Please see the `examples` folder for a demonstration that shows an example Roll Off Room implementation of the ASCOM Dome device type.
+Please see the `examples` folder for a demonstration that shows an example Roll Off Roof implementation of the ASCOM Dome device type.
 
 ## Working
 
@@ -18,6 +18,7 @@ Please see the `examples` folder for a demonstration that shows an example Roll 
   - Rotator
   - SafetyMonitor
   - Switch
+  - Telescope
 - UDP Discovery
 
 ## Tests
@@ -27,8 +28,7 @@ Please see the `examples` folder for a demonstration that shows an example Roll 
 ## TODO
 
 - HTTP Device API
-  - Camera
-  - Telescope
+  - Camera (only the common device routes are registered today)
 
 ## License
 
