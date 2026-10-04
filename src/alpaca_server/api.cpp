@@ -144,8 +144,11 @@ void Api::initialize()
 {
   for (auto it : _devices)
   {
-    for (auto device : it.second)
+    for (size_t i = 0; i < it.second.size(); i++)
     {
+      Device *device = it.second[i];
+      device->_number = i;
+
       char name[33];
       device->get_name(name, sizeof(name));
 
@@ -1038,7 +1041,13 @@ esp_err_t Api::handle_get_supported_api_versions(httpd_req_t *req)
 {
   Api *api = (Api *)req->user_ctx;
   alpaca_request_t parsed_request;
-  api->parse_request(req, &parsed_request);
+  // Management URIs name no device, so parse_request always returns
+  // ESP_ERR_NOT_FOUND here. Only a query over 512 bytes is refused.
+  if (api->parse_request(req, &parsed_request) == ESP_ERR_INVALID_SIZE)
+  {
+    cJSON_Delete(parsed_request.body);
+    return api->send_error_response(req, 400);
+  }
   cJSON *root = cJSON_CreateObject();
 
   int supported_versions[] = {1};
@@ -1052,7 +1061,13 @@ esp_err_t Api::handle_get_server_description(httpd_req_t *req)
 {
   Api *api = (Api *)req->user_ctx;
   alpaca_request_t parsed_request;
-  api->parse_request(req, &parsed_request);
+  // Management URIs name no device, so parse_request always returns
+  // ESP_ERR_NOT_FOUND here. Only a query over 512 bytes is refused.
+  if (api->parse_request(req, &parsed_request) == ESP_ERR_INVALID_SIZE)
+  {
+    cJSON_Delete(parsed_request.body);
+    return api->send_error_response(req, 400);
+  }
   cJSON *root = cJSON_CreateObject();
 
   cJSON *value = cJSON_CreateObject();
@@ -1071,7 +1086,13 @@ esp_err_t Api::handle_get_configured_devices(httpd_req_t *req)
 {
   Api *api = (Api *)req->user_ctx;
   alpaca_request_t parsed_request;
-  api->parse_request(req, &parsed_request);
+  // Management URIs name no device, so parse_request always returns
+  // ESP_ERR_NOT_FOUND here. Only a query over 512 bytes is refused.
+  if (api->parse_request(req, &parsed_request) == ESP_ERR_INVALID_SIZE)
+  {
+    cJSON_Delete(parsed_request.body);
+    return api->send_error_response(req, 400);
+  }
   cJSON *root = cJSON_CreateObject();
 
   cJSON *devices = cJSON_CreateArray();
