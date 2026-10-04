@@ -3841,7 +3841,7 @@ esp_err_t Api::handle_get_observingconditions_sensordescription(httpd_req_t *req
   {
     ObservingConditions *observingconditions = (ObservingConditions *)device;
 
-    cJSON *sensor_name = cJSON_GetObjectItemCaseSensitive(parsed_request.body, "SensorName");
+    cJSON *sensor_name = cJSON_GetObjectItem(parsed_request.body, "SensorName");
     if (!cJSON_IsString(sensor_name))
     {
       cJSON_Delete(root);
@@ -3883,8 +3883,18 @@ esp_err_t Api::handle_get_observingconditions_timesincelastupdate(httpd_req_t *r
   {
     ObservingConditions *observingconditions = (ObservingConditions *)device;
 
+    cJSON *sensor_name = cJSON_GetObjectItem(parsed_request.body, "SensorName");
+    if (!cJSON_IsString(sensor_name))
+    {
+      cJSON_Delete(root);
+      return api->send_error_response(req, &parsed_request, 400);
+    }
+
     double timesincelastupdate = 0;
-    if (check_return(observingconditions->get_timesincelastupdate(&timesincelastupdate), root))
+    if (check_return(
+            observingconditions->get_timesincelastupdate(sensor_name->valuestring, &timesincelastupdate),
+            root
+        ))
     {
       cJSON_AddNumberToObject(root, "Value", timesincelastupdate);
     }
