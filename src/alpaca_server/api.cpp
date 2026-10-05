@@ -921,7 +921,8 @@ esp_err_t Api::parse_request(httpd_req_t *req, alpaca_request_t *parsed_request)
 
   char device_type_str[32];
   memset(device_type_str, 0, sizeof(device_type_str));
-  sscanf(req->uri, "/api/v1/%32[^/]/%hhd/", device_type_str, &parsed_request->device_number);
+  unsigned int device_number = 0;
+  sscanf(req->uri, "/api/v1/%31[^/]/%u/", device_type_str, &device_number);
 
   if (strcmp(device_type_str, "camera") == 0)
   {
@@ -1038,10 +1039,12 @@ esp_err_t Api::parse_request(httpd_req_t *req, alpaca_request_t *parsed_request)
     return ESP_ERR_NOT_FOUND;
   }
 
-  if (parsed_request->device_number >= _devices[parsed_request->device_type].size())
+  // device_number is a uint8_t, so a number above 255 would wrap.
+  if (device_number > UINT8_MAX || device_number >= _devices[parsed_request->device_type].size())
   {
     return ESP_ERR_NOT_FOUND;
   }
+  parsed_request->device_number = device_number;
 
   if (!ids_ok)
   {
