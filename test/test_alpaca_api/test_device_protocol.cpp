@@ -436,7 +436,7 @@ void telescope_members(Checks &c)
   put_parameters(c, "utcdate", {{"UTCDate", "2026-10-04T12%3A00%3A00.0000000Z"}});
   get_parameters(c, "axisrates", {{"Axis", "0"}});
   get_parameters(c, "canmoveaxis", {{"Axis", "0"}});
-  get_parameters(c, "destinationsideofpier", {{"RightAscension", "10"}, {"Declination", "10"}}, false);
+  get_parameters(c, "destinationsideofpier", {{"RightAscension", "10"}, {"Declination", "10"}});
   for (const char *m :
        {"park", "setpark", "unpark", "findhome", "abortslew", "slewtotargetasync", "slewtotarget", "synctotarget"})
   {
