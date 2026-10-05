@@ -7,6 +7,7 @@
 #include <alpaca_server/api.h>
 #include <stdio.h>
 #include <string>
+#include <vector>
 
 using namespace AlpacaServer;
 
@@ -18,6 +19,7 @@ public:
   std::string name = "Fake device";
   bool is_connected = true;
   uint32_t interface_version = 1;
+  std::vector<std::string> supported_actions;
 
   esp_err_t action(const char *action, const char *parameters, char *buf, size_t len) override
   {
@@ -83,7 +85,7 @@ public:
 
   esp_err_t get_supportedactions(std::vector<std::string> &actions) override
   {
-    actions.clear();
+    actions = supported_actions;
     return ALPACA_OK;
   }
 
