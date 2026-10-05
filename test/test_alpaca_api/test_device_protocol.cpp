@@ -117,6 +117,31 @@ private:
   std::vector<std::string> _failures;
 };
 
+// ConformU's TestBadIdValues: each of these must get a 400 in strict mode.
+// "%20" is a space, as a client encodes it.
+const Param BAD_IDS[] = {
+  {"ClientID=", "&ClientTransactionID=67890"},
+  {"ClientID=%20%20%20%20%20", "&ClientTransactionID=67890"},
+  {"ClientID=-12345", "&ClientTransactionID=67890"},
+  {"ClientID=NASDAQ", "&ClientTransactionID=67890"},
+  {"ClientID=12345", "&ClientTransactionID="},
+  {"ClientID=12345", "&ClientTransactionID=%20%20%20%20%20"},
+  {"ClientID=12345", "&ClientTransactionID=-67890"},
+  {"ClientID=12345", "&ClientTransactionID=qweqwe"},
+};
+
+void bad_id_values(Checks &c, const char *method, http_method http, const std::vector<Param> &params)
+{
+  std::string p = c.path(method);
+  for (const Param &ids : BAD_IDS)
+  {
+    std::string client_ids = std::string(ids.name) + ids.value;
+    std::string request = join(params, client_ids.c_str());
+    FakeResponse r = http == HTTP_GET ? get(p, request) : put(p, request);
+    c.expect_bad_value(method, client_ids, r);
+  }
+}
+
 void get_no_parameters(Checks &c, const char *method)
 {
   std::string p = c.path(method);
@@ -126,6 +151,7 @@ void get_no_parameters(Checks &c, const char *method)
   FakeResponse r = get(p, CLIENT_IDS_LOWER_TRANSACTION);
   c.expect_ok(method, "lower-case clienttransactionid", r, true);
   c.expect(transaction_id(r) == 67890, method, "lower-case clienttransactionid is echoed", r);
+  bad_id_values(c, method, HTTP_GET, {});
 }
 
 void get_parameters(Checks &c, const char *method, std::vector<Param> params, bool test_bad_values = true)
@@ -150,6 +176,7 @@ void get_parameters(Checks &c, const char *method, std::vector<Param> params, bo
   FakeResponse r = get(p, join(params, CLIENT_IDS_LOWER_TRANSACTION));
   c.expect_ok(method, "lower-case clienttransactionid", r, true);
   c.expect(transaction_id(r) == 67890, method, "lower-case clienttransactionid is echoed", r);
+  bad_id_values(c, method, HTTP_GET, params);
 }
 
 void put_parameters(Checks &c, const char *method, std::vector<Param> params = {}, bool test_bad_values = true)
@@ -175,6 +202,7 @@ void put_parameters(Checks &c, const char *method, std::vector<Param> params = {
   FakeResponse r = put(p, join(params, CLIENT_IDS_LOWER_TRANSACTION));
   c.expect_ok(method, "lower-case clienttransactionid", r, false);
   c.expect(transaction_id(r) == 0, method, "lower-case clienttransactionid is ignored", r);
+  bad_id_values(c, method, HTTP_PUT, params);
 }
 
 // The members every device type has (ConformU's TestCommon, plus the
