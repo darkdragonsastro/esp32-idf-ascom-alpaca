@@ -641,10 +641,23 @@ void Api::register_telescope_routes(httpd_handle_t server, size_t device_number,
       put_telescope_slewtocoordinatesasync
   );
   REGISTER_DEVICE_ROUTE("telescope", "slewtotargetasync", device_number, HTTP_PUT, put_telescope_slewtotargetasync);
-  // Alias: INDI's alpaca bridge (indi_alpaca_telescope) slews via the synchronous
-  // endpoint name then polls /slewing — i.e. async semantics under the sync name.
-  // Blocking a httpd worker for a full slew is not viable on-device, so serve the
-  // async handler here. NOTE: nonconformant when CanSlew=false; revisit at ConformU gate.
+  // The synchronous slews run the async handlers. A sync slew would block an
+  // httpd worker for the whole slew, which a device cannot afford, and clients
+  // such as INDI's Alpaca bridge call the sync name and then poll /slewing.
+  // The device cannot tell a sync call from an async one, so a device with
+  // CanSlew=false but CanSlewAsync=true slews here instead of returning
+  // NotImplemented, which ConformU's conformance checks report. With
+  // CanSlew=true, ConformU checks the position as soon as a sync slew returns,
+  // so it reports the slew missed the target unless the slew is instant.
+  // ConformU expects Alpaca devices to slew async, so report CanSlew=false.
+  REGISTER_DEVICE_ROUTE("telescope", "slewtoaltaz", device_number, HTTP_PUT, put_telescope_slewtoaltazasync);
+  REGISTER_DEVICE_ROUTE(
+      "telescope",
+      "slewtocoordinates",
+      device_number,
+      HTTP_PUT,
+      put_telescope_slewtocoordinatesasync
+  );
   REGISTER_DEVICE_ROUTE("telescope", "slewtotarget", device_number, HTTP_PUT, put_telescope_slewtotargetasync);
   REGISTER_DEVICE_ROUTE("telescope", "synctoaltaz", device_number, HTTP_PUT, put_telescope_synctoaltaz);
   REGISTER_DEVICE_ROUTE("telescope", "synctocoordinates", device_number, HTTP_PUT, put_telescope_synctocoordinates);

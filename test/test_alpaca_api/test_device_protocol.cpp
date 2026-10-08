@@ -444,11 +444,11 @@ void telescope_members(Checks &c)
   }
   put_parameters(c, "moveaxis", {{"Axis", "0"}, {"Rate", "0.0"}});
   put_parameters(c, "pulseguide", {{"Direction", "0"}, {"Duration", "0"}});
-  for (const char *m : {"slewtocoordinatesasync", "synctocoordinates"})
+  for (const char *m : {"slewtocoordinatesasync", "slewtocoordinates", "synctocoordinates"})
   {
     put_parameters(c, m, {{"RightAscension", "10"}, {"Declination", "10"}});
   }
-  for (const char *m : {"slewtoaltazasync", "synctoaltaz"})
+  for (const char *m : {"slewtoaltazasync", "slewtoaltaz", "synctoaltaz"})
   {
     put_parameters(c, m, {{"Azimuth", "180"}, {"Altitude", "45"}});
   }
