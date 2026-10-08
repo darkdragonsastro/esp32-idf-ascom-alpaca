@@ -775,9 +775,11 @@ void parse_string(alpaca_request_t *req, char *query, bool case_sensitive = true
 // JSON *strings*, so cJSON_GetNumberValue() on them yields NAN. Parse one as a
 // double the same way the dome/focuser handlers do, returning NAN when the
 // parameter is absent or malformed. Tolerates a genuine JSON number too.
-static double get_number_param(cJSON *body, const char *key)
+// PUT names match by case; pass case_sensitive = false for GET names, which
+// match in any case.
+static double get_number_param(cJSON *body, const char *key, bool case_sensitive = true)
 {
-  cJSON *item = cJSON_GetObjectItemCaseSensitive(body, key);
+  cJSON *item = case_sensitive ? cJSON_GetObjectItemCaseSensitive(body, key) : cJSON_GetObjectItem(body, key);
   if (cJSON_IsNumber(item))
   {
     return cJSON_GetNumberValue(item);
@@ -7143,13 +7145,10 @@ esp_err_t Api::handle_get_telescope_destinationsideofpier(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    char *RightAscensionStr = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "RightAscension"));
-    char *DeclinationStr = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Declination"));
-    if (RightAscensionStr != NULL && DeclinationStr != NULL)
+    double RightAscension = get_number_param(parsed_request.body, "RightAscension", false);
+    double Declination = get_number_param(parsed_request.body, "Declination", false);
+    if (!isnan(RightAscension) && !isnan(Declination))
     {
-      double RightAscension = atof(RightAscensionStr);
-      double Declination = atof(DeclinationStr);
-
       Telescope::SideOfPier value = Telescope::SideOfPier::Unknown;
 
       if (check_return(telescope_device->get_destinationsideofpier(RightAscension, Declination, &value), root))
