@@ -1,6 +1,7 @@
 #include "alpaca_server/api.h"
 
 #include <ctype.h>
+#include <errno.h>
 #include <math.h>
 #include <strings.h>
 
@@ -797,15 +798,19 @@ static bool parse_string(alpaca_request_t *req, char *query, bool case_sensitive
 // empty, starts with whitespace, or has anything after the number. strtod()
 // and strtol() read "" as 0 and skip leading whitespace, so their end
 // pointer alone cannot catch those.
+//
+// parse_double_value() also returns false for nan, inf, a hex float such as
+// 0x1p3, and a number too large or too small for a double (1e400, 1e-9999).
 static bool parse_double_value(const char *str, double *out)
 {
-  if (str == NULL || *str == '\0' || isspace((unsigned char)*str))
+  if (str == NULL || *str == '\0' || isspace((unsigned char)*str) || strpbrk(str, "xX") != NULL)
   {
     return false;
   }
   char *endptr;
+  errno = 0;
   double value = strtod(str, &endptr);
-  if (*endptr != '\0')
+  if (*endptr != '\0' || errno == ERANGE || !isfinite(value))
   {
     return false;
   }
@@ -813,6 +818,9 @@ static bool parse_double_value(const char *str, double *out)
   return true;
 }
 
+// parse_int32_value() also returns false for a number outside the int32_t
+// range. long is 32 bits on the ESP32, where strtol() sets ERANGE, and 64
+// bits on the test host, where the range check catches it.
 static bool parse_int32_value(const char *str, int32_t *out)
 {
   if (str == NULL || *str == '\0' || isspace((unsigned char)*str))
@@ -820,8 +828,9 @@ static bool parse_int32_value(const char *str, int32_t *out)
     return false;
   }
   char *endptr;
+  errno = 0;
   long value = strtol(str, &endptr, 10);
-  if (*endptr != '\0')
+  if (*endptr != '\0' || errno == ERANGE || value < INT32_MIN || value > INT32_MAX)
   {
     return false;
   }

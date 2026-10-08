@@ -284,6 +284,58 @@ void test_an_empty_or_blank_number_gets_a_400()
   TEST_ASSERT_EQUAL_STRING("", scope.last_call.c_str());
 }
 
+// strtod() reads all of these, but none is a usable Alpaca number.
+void test_a_double_that_is_not_finite_or_is_hex_gets_a_400()
+{
+  FakeSwitch sw;
+  FakeTelescope scope;
+  Server server({&sw, &scope});
+
+  const char *bad[] = {"nan", "NAN", "inf", "-inf", "infinity", "1e400", "-1e400", "1e-9999", "0x1p3", "0X10"};
+  for (const char *b : bad)
+  {
+    FakeResponse switch_r = put("/api/v1/switch/0/setswitchvalue", std::string("Id=0&Value=") + b + "&" + CLIENT_IDS);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(400, switch_r.status, b);
+    FakeResponse scope_r = put("/api/v1/telescope/0/sitelatitude", std::string("SiteLatitude=") + b + "&" + CLIENT_IDS);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(400, scope_r.status, b);
+  }
+  TEST_ASSERT_EQUAL_STRING("", sw.last_call.c_str());
+  TEST_ASSERT_EQUAL_STRING("", scope.last_call.c_str());
+}
+
+void test_an_id_outside_int32_gets_a_400()
+{
+  FakeSwitch sw;
+  Server server({&sw});
+
+  const char *bad[] = {"2147483648", "4294967296", "-2147483649", "99999999999999999999"};
+  for (const char *b : bad)
+  {
+    FakeResponse get_r = get("/api/v1/switch/0/getswitch", std::string(CLIENT_IDS) + "&Id=" + b);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(400, get_r.status, b);
+    FakeResponse put_r = put("/api/v1/switch/0/setswitch", std::string("Id=") + b + "&State=True&" + CLIENT_IDS);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(400, put_r.status, b);
+  }
+  TEST_ASSERT_EQUAL_STRING("", sw.last_call.c_str());
+}
+
+// INT32_MAX and INT32_MIN parse, so the device's own range check answers.
+void test_an_id_at_the_int32_limits_reaches_the_device()
+{
+  FakeSwitch sw;
+  sw.override_async = false;
+  Server server({&sw});
+
+  for (const char *id : {"2147483647", "-2147483648"})
+  {
+    FakeResponse r = get("/api/v1/switch/0/canasync", std::string(CLIENT_IDS) + "&Id=" + id);
+    TEST_ASSERT_EQUAL_INT(200, r.status);
+    TEST_ASSERT_EQUAL_INT(ALPACA_ERR_INVALID_VALUE, (int)number(r, "ErrorNumber"));
+  }
+  assert_ok(get("/api/v1/switch/0/getswitch", std::string(CLIENT_IDS) + "&Id=2147483647"));
+  TEST_ASSERT_EQUAL_INT(INT32_MAX, sw.last_id);
+}
+
 void test_a_valid_number_still_reaches_the_device()
 {
   FakeSwitch sw;
@@ -547,6 +599,9 @@ int main(int argc, char **argv)
   RUN_TEST(test_put_utcdate_accepts_seconds_with_and_without_a_fraction);
   RUN_TEST(test_put_utcdate_refuses_a_missing_or_badly_formatted_date);
   RUN_TEST(test_an_empty_or_blank_number_gets_a_400);
+  RUN_TEST(test_a_double_that_is_not_finite_or_is_hex_gets_a_400);
+  RUN_TEST(test_an_id_outside_int32_gets_a_400);
+  RUN_TEST(test_an_id_at_the_int32_limits_reaches_the_device);
   RUN_TEST(test_a_valid_number_still_reaches_the_device);
   RUN_TEST(test_switch_v3_defaults_model_a_switch_with_no_async);
   RUN_TEST(test_switch_v3_defaults_refuse_an_id_out_of_range);
