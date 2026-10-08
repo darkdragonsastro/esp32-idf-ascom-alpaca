@@ -194,7 +194,7 @@ void test_put_utcdate_accepts_seconds_with_and_without_a_fraction()
   FakeTelescope scope;
   Server server({&scope});
 
-  const char *good[] = {"2026-10-04T12:00:00Z", "2026-10-04T12:00:00.1Z", "2026-10-04T23:59:59.1234567Z"};
+  const char *good[] = {"2026-10-04T12:00:00Z", "2026-10-04T12:00:00.1Z", "2026-10-04T23:59:59.1234567Z", "2026-10-04T12:00:00.123456789Z"};
   for (const char *date : good)
   {
     scope.utcdate.clear();
@@ -216,7 +216,6 @@ void test_put_utcdate_refuses_a_missing_or_badly_formatted_date()
     "2026-10-04T12:00:00",
     "2026-10-04 12:00:00Z",
     "2026-10-04T12:00:00.Z",
-    "2026-10-04T12:00:00.12345678Z",
     "2026-13-04T12:00:00Z",
     "2026-10-32T12:00:00Z",
     "2026-10-04T24:00:00Z",

@@ -838,7 +838,8 @@ static bool read_digits(const char *s, int n, int *value)
 }
 
 // True when s is a UTCDate in the Alpaca format yyyy-MM-ddTHH:mm:ss.fffffffZ.
-// The fraction is optional and may have 1 to 7 digits.
+// The fraction is optional and may have any number of digits, as the Alpaca
+// spec's pattern allows.
 static bool is_utc_date(const char *s)
 {
   int year, month, day, hour, minute, second;
@@ -861,7 +862,7 @@ static bool is_utc_date(const char *s)
     {
       digits++;
     }
-    if (digits < 1 || digits > 7)
+    if (digits < 1)
     {
       return false;
     }
