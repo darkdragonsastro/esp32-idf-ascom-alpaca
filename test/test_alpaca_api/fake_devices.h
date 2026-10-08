@@ -543,6 +543,9 @@ public:
 class FakeSwitch : public FakeDevice<Switch>
 {
 public:
+  int32_t last_id = -1;
+  double last_value = 0;
+
   esp_err_t get_maxswitch(int32_t *maxswitch) override
   {
     return record("get_maxswitch");
@@ -555,6 +558,7 @@ public:
 
   esp_err_t get_getswitch(int32_t id, bool *getswitch) override
   {
+    last_id = id;
     return record("get_getswitch");
   }
 
@@ -585,6 +589,7 @@ public:
 
   esp_err_t put_setswitch(int32_t id, bool value) override
   {
+    last_id = id;
     return record("put_setswitch");
   }
 
@@ -595,6 +600,8 @@ public:
 
   esp_err_t put_setswitchvalue(int32_t id, double value) override
   {
+    last_id = id;
+    last_value = value;
     return record("put_setswitchvalue");
   }
 

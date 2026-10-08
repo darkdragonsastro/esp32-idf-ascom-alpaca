@@ -788,10 +788,46 @@ static bool parse_string(alpaca_request_t *req, char *query, bool case_sensitive
   return ids_ok;
 }
 
+// Reads a whole parameter value as a number. Returns false when the value is
+// empty, starts with whitespace, or has anything after the number. strtod()
+// and strtol() read "" as 0 and skip leading whitespace, so their end
+// pointer alone cannot catch those.
+static bool parse_double_value(const char *str, double *out)
+{
+  if (str == NULL || *str == '\0' || isspace((unsigned char)*str))
+  {
+    return false;
+  }
+  char *endptr;
+  double value = strtod(str, &endptr);
+  if (*endptr != '\0')
+  {
+    return false;
+  }
+  *out = value;
+  return true;
+}
+
+static bool parse_int32_value(const char *str, int32_t *out)
+{
+  if (str == NULL || *str == '\0' || isspace((unsigned char)*str))
+  {
+    return false;
+  }
+  char *endptr;
+  long value = strtol(str, &endptr, 10);
+  if (*endptr != '\0')
+  {
+    return false;
+  }
+  *out = value;
+  return true;
+}
+
 // Alpaca PUT parameters arrive form-urlencoded; parse_string() stores them as
 // JSON *strings*, so cJSON_GetNumberValue() on them yields NAN. Parse one as a
-// double the same way the dome/focuser handlers do, returning NAN when the
-// parameter is absent or malformed. Tolerates a genuine JSON number too.
+// double with parse_double_value(), returning NAN when the parameter is
+// absent or malformed. Tolerates a genuine JSON number too.
 // PUT names match by case; pass case_sensitive = false for GET names, which
 // match in any case.
 static double get_number_param(cJSON *body, const char *key, bool case_sensitive = true)
@@ -801,14 +837,8 @@ static double get_number_param(cJSON *body, const char *key, bool case_sensitive
   {
     return cJSON_GetNumberValue(item);
   }
-  char *str = cJSON_GetStringValue(item);
-  if (!str || *str == '\0')
-  {
-    return NAN;
-  }
-  char *endptr;
-  double value = strtod(str, &endptr);
-  return (*endptr == '\0') ? value : NAN;
+  double value;
+  return parse_double_value(cJSON_GetStringValue(item), &value) ? value : NAN;
 }
 
 // Reads the Axis parameter of a GET, where names match in any case. Returns
@@ -2754,9 +2784,8 @@ esp_err_t Api::handle_put_dome_slewtoaltitude(httpd_req_t *req)
     char *altitude = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Altitude"));
     if (altitude)
     {
-      char *endptr;
-      double altitude_value = strtof(altitude, &endptr);
-      if (*endptr != '\0')
+      double altitude_value;
+      if (!parse_double_value(altitude, &altitude_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -2797,9 +2826,8 @@ esp_err_t Api::handle_put_dome_slewtoazimuth(httpd_req_t *req)
     char *azimuth = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Azimuth"));
     if (azimuth)
     {
-      char *endptr;
-      double azimuth_value = strtof(azimuth, &endptr);
-      if (*endptr != '\0')
+      double azimuth_value;
+      if (!parse_double_value(azimuth, &azimuth_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -2840,9 +2868,8 @@ esp_err_t Api::handle_put_dome_synctoazimuth(httpd_req_t *req)
     char *azimuth = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Azimuth"));
     if (azimuth)
     {
-      char *endptr;
-      double azimuth_value = strtof(azimuth, &endptr);
-      if (*endptr != '\0')
+      double azimuth_value;
+      if (!parse_double_value(azimuth, &azimuth_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -2987,9 +3014,8 @@ esp_err_t Api::handle_put_filterwheel_position(httpd_req_t *req)
     char *position = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Position"));
     if (position)
     {
-      char *endptr;
-      int32_t position_value = strtol(position, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t position_value;
+      if (!parse_int32_value(position, &position_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -3364,9 +3390,8 @@ esp_err_t Api::handle_put_focuser_move(httpd_req_t *req)
     char *position = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Position"));
     if (position)
     {
-      char *endptr;
-      int32_t position_value = strtol(position, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t position_value;
+      if (!parse_int32_value(position, &position_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -3439,9 +3464,8 @@ esp_err_t Api::handle_put_observingconditions_averageperiod(httpd_req_t *req)
     char *averageperiod = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "AveragePeriod"));
     if (averageperiod)
     {
-      char *endptr;
-      double averageperiod_value = strtof(averageperiod, &endptr);
-      if (*endptr != '\0')
+      double averageperiod_value;
+      if (!parse_double_value(averageperiod, &averageperiod_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4253,9 +4277,8 @@ esp_err_t Api::handle_put_rotator_move(httpd_req_t *req)
     char *position = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Position"));
     if (position)
     {
-      char *endptr;
-      double position_value = strtof(position, &endptr);
-      if (*endptr != '\0')
+      double position_value;
+      if (!parse_double_value(position, &position_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4296,9 +4319,8 @@ esp_err_t Api::handle_put_rotator_moveabsolute(httpd_req_t *req)
     char *position = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Position"));
     if (position)
     {
-      char *endptr;
-      double position_value = strtof(position, &endptr);
-      if (*endptr != '\0')
+      double position_value;
+      if (!parse_double_value(position, &position_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4339,9 +4361,8 @@ esp_err_t Api::handle_put_rotator_movemechanical(httpd_req_t *req)
     char *position = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Position"));
     if (position)
     {
-      char *endptr;
-      double position_value = strtof(position, &endptr);
-      if (*endptr != '\0')
+      double position_value;
+      if (!parse_double_value(position, &position_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4382,9 +4403,8 @@ esp_err_t Api::handle_put_rotator_sync(httpd_req_t *req)
     char *position = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Position"));
     if (position)
     {
-      char *endptr;
-      double position_value = strtof(position, &endptr);
-      if (*endptr != '\0')
+      double position_value;
+      if (!parse_double_value(position, &position_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4489,9 +4509,8 @@ esp_err_t Api::handle_get_switch_canwrite(httpd_req_t *req)
     char *id = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Id"));
     if (id)
     {
-      char *endptr;
-      int32_t id_value = strtol(id, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4536,9 +4555,8 @@ esp_err_t Api::handle_get_switch_getswitch(httpd_req_t *req)
     char *id = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Id"));
     if (id)
     {
-      char *endptr;
-      int32_t id_value = strtol(id, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4583,9 +4601,8 @@ esp_err_t Api::handle_get_switch_getswitchdescription(httpd_req_t *req)
     char *id = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Id"));
     if (id)
     {
-      char *endptr;
-      int32_t id_value = strtol(id, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4630,9 +4647,8 @@ esp_err_t Api::handle_get_switch_getswitchname(httpd_req_t *req)
     char *id = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Id"));
     if (id)
     {
-      char *endptr;
-      int32_t id_value = strtol(id, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4677,9 +4693,8 @@ esp_err_t Api::handle_get_switch_getswitchvalue(httpd_req_t *req)
     char *id = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Id"));
     if (id)
     {
-      char *endptr;
-      int32_t id_value = strtol(id, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4724,9 +4739,8 @@ esp_err_t Api::handle_get_switch_minswitchvalue(httpd_req_t *req)
     char *id = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Id"));
     if (id)
     {
-      char *endptr;
-      int32_t id_value = strtol(id, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4771,9 +4785,8 @@ esp_err_t Api::handle_get_switch_maxswitchvalue(httpd_req_t *req)
     char *id = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Id"));
     if (id)
     {
-      char *endptr;
-      int32_t id_value = strtol(id, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4819,9 +4832,8 @@ esp_err_t Api::handle_put_switch_setswitch(httpd_req_t *req)
     char *state = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "State"));
     if (id && state && (strcasecmp(state, "true") == 0 || strcasecmp(state, "false") == 0))
     {
-      char *endptr;
-      int32_t id_value = strtol(id, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4864,9 +4876,8 @@ esp_err_t Api::handle_put_switch_setswitchname(httpd_req_t *req)
     char *name = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Name"));
     if (id && name)
     {
-      char *endptr;
-      int32_t id_value = strtol(id, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4908,16 +4919,15 @@ esp_err_t Api::handle_put_switch_setswitchvalue(httpd_req_t *req)
     char *value = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Value"));
     if (id && value)
     {
-      char *endptr;
-      int32_t id_value = strtol(id, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
       }
 
-      double value_value = strtod(value, &endptr);
-      if (*endptr != '\0')
+      double value_value;
+      if (!parse_double_value(value, &value_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4958,9 +4968,8 @@ esp_err_t Api::handle_get_switch_switchstep(httpd_req_t *req)
     char *id = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Id"));
     if (id)
     {
-      char *endptr;
-      int32_t id_value = strtol(id, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);

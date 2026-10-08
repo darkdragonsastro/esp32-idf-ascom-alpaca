@@ -247,6 +247,60 @@ void test_put_utcdate_refuses_a_missing_or_badly_formatted_date()
   TEST_ASSERT_EQUAL_STRING("", scope.utcdate.c_str());
 }
 
+// Number parameters
+
+// A number parameter that is empty, only spaces, or has a space before the
+// number gets a 400 and never reaches the device. "%20" is a space and "%09"
+// a tab, as a client encodes them.
+void test_an_empty_or_blank_number_gets_a_400()
+{
+  FakeSwitch sw;
+  FakeFocuser focuser;
+  FakeDome dome;
+  FakeTelescope scope;
+  Server server({&sw, &focuser, &dome, &scope});
+
+  const char *blanks[] = {"", "%20", "%20%20%20", "%09", "%203"};
+  for (const char *blank : blanks)
+  {
+    std::string b = blank;
+    FakeResponse responses[] = {
+      get("/api/v1/switch/0/getswitch", std::string(CLIENT_IDS) + "&Id=" + b),
+      put("/api/v1/switch/0/setswitch", "Id=" + b + "&State=True&" + CLIENT_IDS),
+      put("/api/v1/switch/0/setswitchvalue", "Id=" + b + "&Value=1&" + CLIENT_IDS),
+      put("/api/v1/switch/0/setswitchvalue", "Id=0&Value=" + b + "&" + CLIENT_IDS),
+      put("/api/v1/focuser/0/move", "Position=" + b + "&" + CLIENT_IDS),
+      put("/api/v1/dome/0/slewtoazimuth", "Azimuth=" + b + "&" + CLIENT_IDS),
+      put("/api/v1/telescope/0/sitelatitude", "SiteLatitude=" + b + "&" + CLIENT_IDS),
+    };
+    for (const FakeResponse &r : responses)
+    {
+      TEST_ASSERT_EQUAL_INT_MESSAGE(400, r.status, blank);
+    }
+  }
+  TEST_ASSERT_EQUAL_STRING("", sw.last_call.c_str());
+  TEST_ASSERT_EQUAL_STRING("", focuser.last_call.c_str());
+  TEST_ASSERT_EQUAL_STRING("", dome.last_call.c_str());
+  TEST_ASSERT_EQUAL_STRING("", scope.last_call.c_str());
+}
+
+void test_a_valid_number_still_reaches_the_device()
+{
+  FakeSwitch sw;
+  FakeFocuser focuser;
+  Server server({&sw, &focuser});
+
+  assert_ok(get("/api/v1/switch/0/getswitch", std::string(CLIENT_IDS) + "&Id=1"));
+  TEST_ASSERT_EQUAL_INT(1, sw.last_id);
+
+  assert_ok(put("/api/v1/switch/0/setswitchvalue", std::string("Id=1&Value=-0.5&") + CLIENT_IDS));
+  TEST_ASSERT_EQUAL_INT(1, sw.last_id);
+  TEST_ASSERT_EQUAL_FLOAT(-0.5, sw.last_value);
+
+  assert_ok(put("/api/v1/focuser/0/move", std::string("Position=100&") + CLIENT_IDS));
+  TEST_ASSERT_EQUAL_STRING("put_move", focuser.last_call.c_str());
+}
+
 // Bad URLs
 
 void test_bad_urls_get_a_4xx_status()
@@ -355,6 +409,8 @@ int main(int argc, char **argv)
   RUN_TEST(test_put_utcdate_decodes_the_form_value);
   RUN_TEST(test_put_utcdate_accepts_seconds_with_and_without_a_fraction);
   RUN_TEST(test_put_utcdate_refuses_a_missing_or_badly_formatted_date);
+  RUN_TEST(test_an_empty_or_blank_number_gets_a_400);
+  RUN_TEST(test_a_valid_number_still_reaches_the_device);
   RUN_TEST(test_bad_urls_get_a_4xx_status);
   RUN_TEST(test_device_error_is_reported_in_the_body);
   RUN_TEST(test_every_device_type_routes_to_its_device);
