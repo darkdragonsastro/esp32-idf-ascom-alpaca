@@ -22,7 +22,9 @@ extern "C" void app_main(void)
 
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
-  config.max_uri_handlers = 32; // Default is 8, adjust to handle the number of routes you have.
+  // One handler per route: 3 management routes, 16 routes every device has,
+  // and 25 Dome routes. Too few and the Api aborts when it registers them.
+  config.max_uri_handlers = 3 + 16 + 25;
 
   httpd_handle_t esp_http_server;
   ESP_ERROR_CHECK(httpd_start(&esp_http_server, &config));
