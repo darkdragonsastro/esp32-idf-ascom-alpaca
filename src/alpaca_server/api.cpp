@@ -514,6 +514,11 @@ void Api::register_switch_routes(httpd_handle_t server, size_t device_number, Sw
   REGISTER_DEVICE_ROUTE("switch", "setswitchname", device_number, HTTP_PUT, put_switch_setswitchname);
   REGISTER_DEVICE_ROUTE("switch", "setswitchvalue", device_number, HTTP_PUT, put_switch_setswitchvalue);
   REGISTER_DEVICE_ROUTE("switch", "switchstep", device_number, HTTP_GET, get_switch_switchstep);
+  REGISTER_DEVICE_ROUTE("switch", "canasync", device_number, HTTP_GET, get_switch_canasync);
+  REGISTER_DEVICE_ROUTE("switch", "setasync", device_number, HTTP_PUT, put_switch_setasync);
+  REGISTER_DEVICE_ROUTE("switch", "setasyncvalue", device_number, HTTP_PUT, put_switch_setasyncvalue);
+  REGISTER_DEVICE_ROUTE("switch", "statechangecomplete", device_number, HTTP_GET, get_switch_statechangecomplete);
+  REGISTER_DEVICE_ROUTE("switch", "cancelasync", device_number, HTTP_PUT, put_switch_cancelasync);
 }
 
 void Api::register_telescope_routes(httpd_handle_t server, size_t device_number, Telescope *device)
@@ -1677,6 +1682,47 @@ esp_err_t Api::handle_get_devicestate(httpd_req_t *req)
     if (((SafetyMonitor *)device)->get_issafe(&b) == ALPACA_OK)
     {
       add_state_bool(state, "IsSafe", b);
+    }
+    break;
+  }
+  case DeviceType::Switch:
+  {
+    // ISwitchV3 names each entry after the property and the switch number:
+    // GetSwitch0, GetSwitch1, ..., then GetSwitchValue0, ..., then
+    // StateChangeComplete0, .... A switch whose read fails is left out.
+    Switch *switch_device = (Switch *)device;
+    int32_t maxswitch = 0;
+    if (switch_device->get_maxswitch(&maxswitch) != ALPACA_OK)
+    {
+      break;
+    }
+    char name[40];
+    for (int32_t i = 0; i < maxswitch; i++)
+    {
+      bool b = false;
+      if (switch_device->get_getswitch(i, &b) == ALPACA_OK)
+      {
+        snprintf(name, sizeof(name), "GetSwitch%ld", (long)i);
+        add_state_bool(state, name, b);
+      }
+    }
+    for (int32_t i = 0; i < maxswitch; i++)
+    {
+      double d = 0;
+      if (switch_device->get_getswitchvalue(i, &d) == ALPACA_OK)
+      {
+        snprintf(name, sizeof(name), "GetSwitchValue%ld", (long)i);
+        add_state_number(state, name, d);
+      }
+    }
+    for (int32_t i = 0; i < maxswitch; i++)
+    {
+      bool b = false;
+      if (switch_device->get_statechangecomplete(i, &b) == ALPACA_OK)
+      {
+        snprintf(name, sizeof(name), "StateChangeComplete%ld", (long)i);
+        add_state_bool(state, name, b);
+      }
     }
     break;
   }
@@ -4980,6 +5026,234 @@ esp_err_t Api::handle_get_switch_switchstep(httpd_req_t *req)
       {
         cJSON_AddNumberToObject(root, "Value", switchstep);
       }
+    }
+    else
+    {
+      cJSON_Delete(root);
+      return api->send_error_response(req, &parsed_request, 400);
+    }
+  }
+  else
+  {
+    set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
+  }
+
+  return api->send_json_response(req, &parsed_request, root);
+}
+
+esp_err_t Api::handle_get_switch_canasync(httpd_req_t *req)
+{
+  Api *api = (Api *)req->user_ctx;
+  alpaca_request_t parsed_request;
+  esp_err_t err = api->parse_request(req, &parsed_request);
+  if (err != ESP_OK)
+  {
+    return api->send_error_response(req, &parsed_request, err == ESP_ERR_NOT_FOUND ? 404 : 400);
+  }
+  cJSON *root = cJSON_CreateObject();
+  Device *device = api->_devices[parsed_request.device_type][parsed_request.device_number];
+
+  if (parsed_request.device_type == DeviceType::Switch)
+  {
+    Switch *switch_device = (Switch *)device;
+
+    char *id = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Id"));
+    if (id)
+    {
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
+      {
+        cJSON_Delete(root);
+        return api->send_error_response(req, &parsed_request, 400);
+      }
+
+      bool canasync = false;
+      if (check_return(switch_device->get_canasync(id_value, &canasync), root))
+      {
+        cJSON_AddBoolToObject(root, "Value", canasync);
+      }
+    }
+    else
+    {
+      cJSON_Delete(root);
+      return api->send_error_response(req, &parsed_request, 400);
+    }
+  }
+  else
+  {
+    set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
+  }
+
+  return api->send_json_response(req, &parsed_request, root);
+}
+
+esp_err_t Api::handle_put_switch_setasync(httpd_req_t *req)
+{
+  Api *api = (Api *)req->user_ctx;
+  alpaca_request_t parsed_request;
+  esp_err_t err = api->parse_request(req, &parsed_request);
+  if (err != ESP_OK)
+  {
+    return api->send_error_response(req, &parsed_request, err == ESP_ERR_NOT_FOUND ? 404 : 400);
+  }
+  cJSON *root = cJSON_CreateObject();
+  Device *device = api->_devices[parsed_request.device_type][parsed_request.device_number];
+
+  if (parsed_request.device_type == DeviceType::Switch)
+  {
+    Switch *switch_device = (Switch *)device;
+
+    char *id = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Id"));
+    char *state = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "State"));
+    if (id && state && (strcasecmp(state, "true") == 0 || strcasecmp(state, "false") == 0))
+    {
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
+      {
+        cJSON_Delete(root);
+        return api->send_error_response(req, &parsed_request, 400);
+      }
+
+      bool state_value = strcasecmp(state, "true") == 0;
+      check_return(switch_device->put_setasync(id_value, state_value), root);
+    }
+    else
+    {
+      cJSON_Delete(root);
+      return api->send_error_response(req, &parsed_request, 400);
+    }
+  }
+  else
+  {
+    set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
+  }
+
+  return api->send_json_response(req, &parsed_request, root);
+}
+
+esp_err_t Api::handle_put_switch_setasyncvalue(httpd_req_t *req)
+{
+  Api *api = (Api *)req->user_ctx;
+  alpaca_request_t parsed_request;
+  esp_err_t err = api->parse_request(req, &parsed_request);
+  if (err != ESP_OK)
+  {
+    return api->send_error_response(req, &parsed_request, err == ESP_ERR_NOT_FOUND ? 404 : 400);
+  }
+  cJSON *root = cJSON_CreateObject();
+  Device *device = api->_devices[parsed_request.device_type][parsed_request.device_number];
+
+  if (parsed_request.device_type == DeviceType::Switch)
+  {
+    Switch *switch_device = (Switch *)device;
+
+    char *id = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Id"));
+    char *value = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Value"));
+    if (id && value)
+    {
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
+      {
+        cJSON_Delete(root);
+        return api->send_error_response(req, &parsed_request, 400);
+      }
+
+      double value_value;
+      if (!parse_double_value(value, &value_value))
+      {
+        cJSON_Delete(root);
+        return api->send_error_response(req, &parsed_request, 400);
+      }
+
+      check_return(switch_device->put_setasyncvalue(id_value, value_value), root);
+    }
+    else
+    {
+      cJSON_Delete(root);
+      return api->send_error_response(req, &parsed_request, 400);
+    }
+  }
+  else
+  {
+    set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
+  }
+
+  return api->send_json_response(req, &parsed_request, root);
+}
+
+esp_err_t Api::handle_get_switch_statechangecomplete(httpd_req_t *req)
+{
+  Api *api = (Api *)req->user_ctx;
+  alpaca_request_t parsed_request;
+  esp_err_t err = api->parse_request(req, &parsed_request);
+  if (err != ESP_OK)
+  {
+    return api->send_error_response(req, &parsed_request, err == ESP_ERR_NOT_FOUND ? 404 : 400);
+  }
+  cJSON *root = cJSON_CreateObject();
+  Device *device = api->_devices[parsed_request.device_type][parsed_request.device_number];
+
+  if (parsed_request.device_type == DeviceType::Switch)
+  {
+    Switch *switch_device = (Switch *)device;
+
+    char *id = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Id"));
+    if (id)
+    {
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
+      {
+        cJSON_Delete(root);
+        return api->send_error_response(req, &parsed_request, 400);
+      }
+
+      bool statechangecomplete = false;
+      if (check_return(switch_device->get_statechangecomplete(id_value, &statechangecomplete), root))
+      {
+        cJSON_AddBoolToObject(root, "Value", statechangecomplete);
+      }
+    }
+    else
+    {
+      cJSON_Delete(root);
+      return api->send_error_response(req, &parsed_request, 400);
+    }
+  }
+  else
+  {
+    set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
+  }
+
+  return api->send_json_response(req, &parsed_request, root);
+}
+
+esp_err_t Api::handle_put_switch_cancelasync(httpd_req_t *req)
+{
+  Api *api = (Api *)req->user_ctx;
+  alpaca_request_t parsed_request;
+  esp_err_t err = api->parse_request(req, &parsed_request);
+  if (err != ESP_OK)
+  {
+    return api->send_error_response(req, &parsed_request, err == ESP_ERR_NOT_FOUND ? 404 : 400);
+  }
+  cJSON *root = cJSON_CreateObject();
+  Device *device = api->_devices[parsed_request.device_type][parsed_request.device_number];
+
+  if (parsed_request.device_type == DeviceType::Switch)
+  {
+    Switch *switch_device = (Switch *)device;
+
+    char *id = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Id"));
+    if (id)
+    {
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
+      {
+        cJSON_Delete(root);
+        return api->send_error_response(req, &parsed_request, 400);
+      }
+
+      check_return(switch_device->put_cancelasync(id_value), root);
     }
     else
     {

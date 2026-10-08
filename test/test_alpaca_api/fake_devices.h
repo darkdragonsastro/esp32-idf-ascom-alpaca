@@ -543,11 +543,19 @@ public:
 class FakeSwitch : public FakeDevice<Switch>
 {
 public:
+  int32_t max_switch = 2;
+  // A GetSwitch or GetSwitchValue read of this Id fails with NotConnected.
+  // -1 means every read works.
+  int32_t failing_id = -1;
+  // When false, the ISwitchV3 members fall through to the Switch defaults,
+  // as they do for a device that does not override them.
+  bool override_async = true;
   int32_t last_id = -1;
   double last_value = 0;
 
   esp_err_t get_maxswitch(int32_t *maxswitch) override
   {
+    *maxswitch = max_switch;
     return record("get_maxswitch");
   }
 
@@ -556,9 +564,16 @@ public:
     return record("get_canwrite");
   }
 
+  // Switch 0 is on and every other switch is off. Each value is the Id plus
+  // 0.5, so a test can tell the switches apart.
   esp_err_t get_getswitch(int32_t id, bool *getswitch) override
   {
     last_id = id;
+    if (id == failing_id)
+    {
+      return ALPACA_ERR_NOT_CONNECTED;
+    }
+    *getswitch = id == 0;
     return record("get_getswitch");
   }
 
@@ -574,6 +589,11 @@ public:
 
   esp_err_t get_getswitchvalue(int32_t id, double *value) override
   {
+    if (id == failing_id)
+    {
+      return ALPACA_ERR_NOT_CONNECTED;
+    }
+    *value = id + 0.5;
     return record("get_getswitchvalue");
   }
 
@@ -608,6 +628,53 @@ public:
   esp_err_t get_switchstep(int32_t id, double *switchstep) override
   {
     return record("get_switchstep");
+  }
+
+  esp_err_t get_canasync(int32_t id, bool *canasync) override
+  {
+    if (!override_async)
+    {
+      return Switch::get_canasync(id, canasync);
+    }
+    *canasync = true;
+    return record("get_canasync");
+  }
+
+  esp_err_t put_setasync(int32_t id, bool state) override
+  {
+    if (!override_async)
+    {
+      return Switch::put_setasync(id, state);
+    }
+    return record("put_setasync");
+  }
+
+  esp_err_t put_setasyncvalue(int32_t id, double value) override
+  {
+    if (!override_async)
+    {
+      return Switch::put_setasyncvalue(id, value);
+    }
+    return record("put_setasyncvalue");
+  }
+
+  esp_err_t get_statechangecomplete(int32_t id, bool *complete) override
+  {
+    if (!override_async)
+    {
+      return Switch::get_statechangecomplete(id, complete);
+    }
+    *complete = true;
+    return record("get_statechangecomplete");
+  }
+
+  esp_err_t put_cancelasync(int32_t id) override
+  {
+    if (!override_async)
+    {
+      return Switch::put_cancelasync(id);
+    }
+    return record("put_cancelasync");
   }
 };
 

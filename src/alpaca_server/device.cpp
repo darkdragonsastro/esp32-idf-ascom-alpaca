@@ -272,6 +272,56 @@ Switch::~Switch()
 {
 }
 
+// Returns InvalidValue when id is not 0 to MaxSwitch - 1, or the error from
+// get_maxswitch when that read fails.
+static esp_err_t check_switch_id(Switch *device, int32_t id)
+{
+  int32_t maxswitch = 0;
+  esp_err_t err = device->get_maxswitch(&maxswitch);
+  if (err != ALPACA_OK)
+  {
+    return err;
+  }
+  if (id < 0 || id >= maxswitch)
+  {
+    return ALPACA_ERR_INVALID_VALUE;
+  }
+  return ALPACA_OK;
+}
+
+esp_err_t Switch::get_canasync(int32_t id, bool *canasync)
+{
+  esp_err_t err = check_switch_id(this, id);
+  if (err == ALPACA_OK)
+  {
+    *canasync = false;
+  }
+  return err;
+}
+
+esp_err_t Switch::put_setasync(int32_t id, bool state)
+{
+  esp_err_t err = check_switch_id(this, id);
+  return err == ALPACA_OK ? ALPACA_ERR_NOT_IMPLEMENTED : err;
+}
+
+esp_err_t Switch::put_setasyncvalue(int32_t id, double value)
+{
+  esp_err_t err = check_switch_id(this, id);
+  return err == ALPACA_OK ? ALPACA_ERR_NOT_IMPLEMENTED : err;
+}
+
+esp_err_t Switch::get_statechangecomplete(int32_t id, bool *complete)
+{
+  esp_err_t err = check_switch_id(this, id);
+  return err == ALPACA_OK ? ALPACA_ERR_NOT_IMPLEMENTED : err;
+}
+
+esp_err_t Switch::put_cancelasync(int32_t id)
+{
+  return check_switch_id(this, id);
+}
+
 AlpacaServer::DeviceType Telescope::device_type()
 {
   return AlpacaServer::DeviceType::Telescope;

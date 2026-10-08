@@ -301,6 +301,143 @@ void test_a_valid_number_still_reaches_the_device()
   TEST_ASSERT_EQUAL_STRING("put_move", focuser.last_call.c_str());
 }
 
+// Switch interface version 3
+
+void assert_alpaca_error(const FakeResponse &r, int error_number)
+{
+  TEST_ASSERT_EQUAL_INT(200, r.status);
+  TEST_ASSERT_EQUAL_INT(error_number, (int)number(r, "ErrorNumber"));
+}
+
+void test_switch_v3_defaults_model_a_switch_with_no_async()
+{
+  FakeSwitch sw;
+  sw.override_async = false;
+  Server server({&sw});
+
+  FakeResponse r = get("/api/v1/switch/0/canasync", std::string(CLIENT_IDS) + "&Id=1");
+  assert_ok(r);
+  TEST_ASSERT_TRUE(cJSON_IsFalse(field(r, "Value")));
+
+  assert_alpaca_error(
+      put("/api/v1/switch/0/setasync", std::string("Id=1&State=True&") + CLIENT_IDS),
+      ALPACA_ERR_NOT_IMPLEMENTED
+  );
+  assert_alpaca_error(
+      put("/api/v1/switch/0/setasyncvalue", std::string("Id=1&Value=1&") + CLIENT_IDS),
+      ALPACA_ERR_NOT_IMPLEMENTED
+  );
+  assert_alpaca_error(
+      get("/api/v1/switch/0/statechangecomplete", std::string(CLIENT_IDS) + "&Id=1"),
+      ALPACA_ERR_NOT_IMPLEMENTED
+  );
+  assert_ok(put("/api/v1/switch/0/cancelasync", std::string("Id=1&") + CLIENT_IDS));
+}
+
+void test_switch_v3_defaults_refuse_an_id_out_of_range()
+{
+  FakeSwitch sw;
+  sw.override_async = false;
+  Server server({&sw});
+
+  for (const char *id : {"-1", "2"})
+  {
+    std::string query = std::string(CLIENT_IDS) + "&Id=" + id;
+    std::string body = std::string("Id=") + id + "&" + CLIENT_IDS;
+    assert_alpaca_error(get("/api/v1/switch/0/canasync", query), ALPACA_ERR_INVALID_VALUE);
+    assert_alpaca_error(put("/api/v1/switch/0/setasync", body + "&State=True"), ALPACA_ERR_INVALID_VALUE);
+    assert_alpaca_error(put("/api/v1/switch/0/setasyncvalue", body + "&Value=1"), ALPACA_ERR_INVALID_VALUE);
+    assert_alpaca_error(get("/api/v1/switch/0/statechangecomplete", query), ALPACA_ERR_INVALID_VALUE);
+    assert_alpaca_error(put("/api/v1/switch/0/cancelasync", body), ALPACA_ERR_INVALID_VALUE);
+  }
+}
+
+void test_switch_v3_routes_reach_a_device_that_overrides_them()
+{
+  FakeSwitch sw;
+  Server server({&sw});
+
+  FakeResponse r = get("/api/v1/switch/0/canasync", std::string(CLIENT_IDS) + "&Id=0");
+  assert_ok(r);
+  TEST_ASSERT_EQUAL_STRING("get_canasync", sw.last_call.c_str());
+  TEST_ASSERT_TRUE(cJSON_IsTrue(field(r, "Value")));
+
+  assert_ok(put("/api/v1/switch/0/setasync", std::string("Id=0&State=True&") + CLIENT_IDS));
+  TEST_ASSERT_EQUAL_STRING("put_setasync", sw.last_call.c_str());
+
+  assert_ok(put("/api/v1/switch/0/setasyncvalue", std::string("Id=0&Value=1&") + CLIENT_IDS));
+  TEST_ASSERT_EQUAL_STRING("put_setasyncvalue", sw.last_call.c_str());
+
+  r = get("/api/v1/switch/0/statechangecomplete", std::string(CLIENT_IDS) + "&Id=0");
+  assert_ok(r);
+  TEST_ASSERT_EQUAL_STRING("get_statechangecomplete", sw.last_call.c_str());
+  TEST_ASSERT_TRUE(cJSON_IsTrue(field(r, "Value")));
+
+  assert_ok(put("/api/v1/switch/0/cancelasync", std::string("Id=0&") + CLIENT_IDS));
+  TEST_ASSERT_EQUAL_STRING("put_cancelasync", sw.last_call.c_str());
+}
+
+// The DeviceState entry with this name, or NULL.
+cJSON *state_entry(const FakeResponse &r, const char *name)
+{
+  cJSON *entry;
+  cJSON_ArrayForEach(entry, field(r, "Value"))
+  {
+    if (strcmp(cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(entry, "Name")), name) == 0)
+    {
+      return cJSON_GetObjectItemCaseSensitive(entry, "Value");
+    }
+  }
+  return NULL;
+}
+
+void test_switch_devicestate_lists_each_switch_and_skips_a_failed_read()
+{
+  FakeSwitch sw;
+  sw.max_switch = 3;
+  sw.failing_id = 1;
+  sw.override_async = false;
+  Server server({&sw});
+
+  FakeResponse r = get("/api/v1/switch/0/devicestate");
+
+  assert_ok(r);
+  TEST_ASSERT_TRUE(cJSON_IsTrue(state_entry(r, "GetSwitch0")));
+  TEST_ASSERT_NULL(state_entry(r, "GetSwitch1"));
+  TEST_ASSERT_TRUE(cJSON_IsFalse(state_entry(r, "GetSwitch2")));
+  TEST_ASSERT_EQUAL_FLOAT(0.5, cJSON_GetNumberValue(state_entry(r, "GetSwitchValue0")));
+  TEST_ASSERT_NULL(state_entry(r, "GetSwitchValue1"));
+  TEST_ASSERT_EQUAL_FLOAT(2.5, cJSON_GetNumberValue(state_entry(r, "GetSwitchValue2")));
+  TEST_ASSERT_NULL(state_entry(r, "GetSwitch3"));
+  // StateChangeComplete returns NotImplemented by default, so it is left out.
+  TEST_ASSERT_NULL(state_entry(r, "StateChangeComplete0"));
+}
+
+void test_switch_devicestate_lists_statechangecomplete_when_the_device_has_it()
+{
+  FakeSwitch sw;
+  Server server({&sw});
+
+  FakeResponse r = get("/api/v1/switch/0/devicestate");
+
+  assert_ok(r);
+  TEST_ASSERT_TRUE(cJSON_IsTrue(state_entry(r, "StateChangeComplete0")));
+  TEST_ASSERT_TRUE(cJSON_IsTrue(state_entry(r, "StateChangeComplete1")));
+}
+
+void test_switch_devicestate_has_no_switches_when_maxswitch_fails()
+{
+  FakeSwitch sw;
+  sw.ret = ALPACA_ERR_NOT_CONNECTED;
+  Server server({&sw});
+
+  FakeResponse r = get("/api/v1/switch/0/devicestate");
+
+  assert_ok(r);
+  TEST_ASSERT_NULL(state_entry(r, "GetSwitch0"));
+  TEST_ASSERT_NULL(state_entry(r, "GetSwitchValue0"));
+}
+
 // Bad URLs
 
 void test_bad_urls_get_a_4xx_status()
@@ -411,6 +548,12 @@ int main(int argc, char **argv)
   RUN_TEST(test_put_utcdate_refuses_a_missing_or_badly_formatted_date);
   RUN_TEST(test_an_empty_or_blank_number_gets_a_400);
   RUN_TEST(test_a_valid_number_still_reaches_the_device);
+  RUN_TEST(test_switch_v3_defaults_model_a_switch_with_no_async);
+  RUN_TEST(test_switch_v3_defaults_refuse_an_id_out_of_range);
+  RUN_TEST(test_switch_v3_routes_reach_a_device_that_overrides_them);
+  RUN_TEST(test_switch_devicestate_lists_each_switch_and_skips_a_failed_read);
+  RUN_TEST(test_switch_devicestate_lists_statechangecomplete_when_the_device_has_it);
+  RUN_TEST(test_switch_devicestate_has_no_switches_when_maxswitch_fails);
   RUN_TEST(test_bad_urls_get_a_4xx_status);
   RUN_TEST(test_device_error_is_reported_in_the_body);
   RUN_TEST(test_every_device_type_routes_to_its_device);

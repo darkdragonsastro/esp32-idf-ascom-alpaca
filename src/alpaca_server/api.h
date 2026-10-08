@@ -240,6 +240,11 @@ private:
   static esp_err_t handle_put_switch_setswitchname(httpd_req_t *req);
   static esp_err_t handle_put_switch_setswitchvalue(httpd_req_t *req);
   static esp_err_t handle_get_switch_switchstep(httpd_req_t *req);
+  static esp_err_t handle_get_switch_canasync(httpd_req_t *req);
+  static esp_err_t handle_put_switch_setasync(httpd_req_t *req);
+  static esp_err_t handle_put_switch_setasyncvalue(httpd_req_t *req);
+  static esp_err_t handle_get_switch_statechangecomplete(httpd_req_t *req);
+  static esp_err_t handle_put_switch_cancelasync(httpd_req_t *req);
 
   // Telescope API
 
