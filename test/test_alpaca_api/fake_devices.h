@@ -605,6 +605,8 @@ public:
 class FakeTelescope : public FakeDevice<Telescope>
 {
 public:
+  std::string utcdate;
+
   esp_err_t get_alignmentmode(AlignmentMode *alignmentmode) override
   {
     return record("get_alignmentmode");
@@ -905,8 +907,9 @@ public:
     return record("get_utcdate");
   }
 
-  esp_err_t put_utcdate(const std::string &utcdate) override
+  esp_err_t put_utcdate(const std::string &value) override
   {
+    utcdate = value;
     return record("put_utcdate");
   }
 

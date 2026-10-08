@@ -1,5 +1,6 @@
 #include "alpaca_server/api.h"
 
+#include <ctype.h>
 #include <math.h>
 #include <strings.h>
 
@@ -662,6 +663,49 @@ void Api::register_telescope_routes(httpd_handle_t server, size_t device_number,
   REGISTER_DEVICE_ROUTE("telescope", "utcdate", device_number, HTTP_PUT, put_telescope_utcdate);
 }
 
+static int hex_digit(char c)
+{
+  if (c >= '0' && c <= '9')
+  {
+    return c - '0';
+  }
+  if (c >= 'a' && c <= 'f')
+  {
+    return c - 'a' + 10;
+  }
+  if (c >= 'A' && c <= 'F')
+  {
+    return c - 'A' + 10;
+  }
+  return -1;
+}
+
+// Decode a query or form-urlencoded string in place: "+" becomes a space and
+// "%XX" becomes the byte XX. A "%" that is not followed by two hex digits is
+// kept as it is.
+static void url_decode(char *s)
+{
+  char *out = s;
+  while (*s)
+  {
+    if (*s == '+')
+    {
+      *out++ = ' ';
+      s++;
+    }
+    else if (*s == '%' && hex_digit(s[1]) >= 0 && hex_digit(s[2]) >= 0)
+    {
+      *out++ = (char)(hex_digit(s[1]) * 16 + hex_digit(s[2]));
+      s += 3;
+    }
+    else
+    {
+      *out++ = *s++;
+    }
+  }
+  *out = '\0';
+}
+
 void parse_string(alpaca_request_t *req, char *query, bool case_sensitive = true)
 {
   while (query)
@@ -684,6 +728,9 @@ void parse_string(alpaca_request_t *req, char *query, bool case_sensitive = true
       *next = '\0';
       next += 1;
     }
+
+    url_decode(key);
+    url_decode(value);
 
     if (case_sensitive)
     {
@@ -773,6 +820,55 @@ static int get_bool_param(cJSON *body, const char *key)
     return 0;
   }
   return -1;
+}
+
+// Reads n digits at s into *value. Returns false if any is not a digit.
+static bool read_digits(const char *s, int n, int *value)
+{
+  *value = 0;
+  for (int i = 0; i < n; i++)
+  {
+    if (!isdigit((unsigned char)s[i]))
+    {
+      return false;
+    }
+    *value = *value * 10 + (s[i] - '0');
+  }
+  return true;
+}
+
+// True when s is a UTCDate in the Alpaca format yyyy-MM-ddTHH:mm:ss.fffffffZ.
+// The fraction is optional and may have any number of digits, as the Alpaca
+// spec's pattern allows.
+static bool is_utc_date(const char *s)
+{
+  int year, month, day, hour, minute, second;
+  if (strlen(s) < 20 || !read_digits(s, 4, &year) || s[4] != '-' || !read_digits(s + 5, 2, &month) || s[7] != '-' ||
+      !read_digits(s + 8, 2, &day) || s[10] != 'T' || !read_digits(s + 11, 2, &hour) || s[13] != ':' ||
+      !read_digits(s + 14, 2, &minute) || s[16] != ':' || !read_digits(s + 17, 2, &second))
+  {
+    return false;
+  }
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59 || second > 59)
+  {
+    return false;
+  }
+  const char *rest = s + 19;
+  if (*rest == '.')
+  {
+    rest++;
+    int digits = 0;
+    while (isdigit((unsigned char)rest[digits]))
+    {
+      digits++;
+    }
+    if (digits < 1)
+    {
+      return false;
+    }
+    rest += digits;
+  }
+  return strcmp(rest, "Z") == 0;
 }
 
 esp_err_t Api::parse_request(httpd_req_t *req, alpaca_request_t *parsed_request)
@@ -6882,12 +6978,10 @@ esp_err_t Api::handle_put_telescope_utcdate(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    std::string value = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "UTCDate"));
-    if (!value.empty())
+    const char *value = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "UTCDate"));
+    if (value && is_utc_date(value))
     {
-      if (check_return(telescope_device->put_utcdate(value), root))
-      {
-      }
+      check_return(telescope_device->put_utcdate(value), root);
     }
     else
     {

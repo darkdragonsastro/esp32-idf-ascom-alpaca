@@ -432,6 +432,8 @@ void telescope_members(Checks &c)
   put_parameters(c, "targetrightascension", {{"TargetRightAscension", "10"}});
   put_parameters(c, "tracking", {{"Tracking", "True"}});
   put_parameters(c, "trackingrate", {{"TrackingRate", "0"}});
+  // Form-encoded, as a client sends it: the colons arrive as %3A.
+  put_parameters(c, "utcdate", {{"UTCDate", "2026-10-04T12%3A00%3A00.0000000Z"}});
   get_parameters(c, "axisrates", {{"Axis", "0"}}, false);
   get_parameters(c, "canmoveaxis", {{"Axis", "0"}}, false);
   get_parameters(c, "destinationsideofpier", {{"RightAscension", "10"}, {"Declination", "10"}}, false);

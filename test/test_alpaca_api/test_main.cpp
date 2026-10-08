@@ -177,6 +177,58 @@ void test_put_parameter_names_are_case_sensitive()
   TEST_ASSERT_FALSE(monitor.is_connected);
 }
 
+// Telescope UTCDate
+
+void test_put_utcdate_decodes_the_form_value()
+{
+  FakeTelescope scope;
+  Server server({&scope});
+
+  assert_ok(put("/api/v1/telescope/0/utcdate", std::string("UTCDate=2026-10-04T12%3A00%3A00.5Z&") + CLIENT_IDS));
+
+  TEST_ASSERT_EQUAL_STRING("2026-10-04T12:00:00.5Z", scope.utcdate.c_str());
+}
+
+void test_put_utcdate_accepts_seconds_with_and_without_a_fraction()
+{
+  FakeTelescope scope;
+  Server server({&scope});
+
+  const char *good[] = {"2026-10-04T12:00:00Z", "2026-10-04T12:00:00.1Z", "2026-10-04T23:59:59.1234567Z", "2026-10-04T12:00:00.123456789Z"};
+  for (const char *date : good)
+  {
+    scope.utcdate.clear();
+    assert_ok(put("/api/v1/telescope/0/utcdate", std::string("UTCDate=") + date + "&" + CLIENT_IDS));
+    TEST_ASSERT_EQUAL_STRING(date, scope.utcdate.c_str());
+  }
+}
+
+void test_put_utcdate_refuses_a_missing_or_badly_formatted_date()
+{
+  FakeTelescope scope;
+  Server server({&scope});
+
+  assert_bad_value(put("/api/v1/telescope/0/utcdate", CLIENT_IDS));
+  const char *bad[] = {
+    "",
+    "asduio6fghZZ",
+    "2026-10-04",
+    "2026-10-04T12:00:00",
+    "2026-10-04 12:00:00Z",
+    "2026-10-04T12:00:00.Z",
+    "2026-13-04T12:00:00Z",
+    "2026-10-32T12:00:00Z",
+    "2026-10-04T24:00:00Z",
+    "2026-10-04T12:60:00Z",
+    "2026-10-04T12:00:00Zjunk",
+  };
+  for (const char *date : bad)
+  {
+    assert_bad_value(put("/api/v1/telescope/0/utcdate", std::string("UTCDate=") + date + "&" + CLIENT_IDS));
+  }
+  TEST_ASSERT_EQUAL_STRING("", scope.utcdate.c_str());
+}
+
 // Bad URLs
 
 void test_bad_urls_get_a_4xx_status()
@@ -281,6 +333,9 @@ int main(int argc, char **argv)
   RUN_TEST(test_put_connected_sets_the_device);
   RUN_TEST(test_put_connected_refuses_bad_values);
   RUN_TEST(test_put_parameter_names_are_case_sensitive);
+  RUN_TEST(test_put_utcdate_decodes_the_form_value);
+  RUN_TEST(test_put_utcdate_accepts_seconds_with_and_without_a_fraction);
+  RUN_TEST(test_put_utcdate_refuses_a_missing_or_badly_formatted_date);
   RUN_TEST(test_bad_urls_get_a_4xx_status);
   RUN_TEST(test_device_error_is_reported_in_the_body);
   RUN_TEST(test_every_device_type_routes_to_its_device);
