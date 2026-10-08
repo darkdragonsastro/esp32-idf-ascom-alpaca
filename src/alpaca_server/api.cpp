@@ -792,6 +792,20 @@ static double get_number_param(cJSON *body, const char *key)
   return (*endptr == '\0') ? value : NAN;
 }
 
+// Reads the Axis parameter of a GET, where names match in any case. Returns
+// the axis number, or -1 when Axis is absent or not a whole number >= 0.
+static int get_axis_param(cJSON *body)
+{
+  char *str = cJSON_GetStringValue(cJSON_GetObjectItem(body, "Axis"));
+  if (!str || !isdigit((unsigned char)*str))
+  {
+    return -1;
+  }
+  char *endptr;
+  long value = strtol(str, &endptr, 10);
+  return (*endptr == '\0' && value <= INT32_MAX) ? (int)value : -1;
+}
+
 // Same story as get_number_param() for the two boolean telescope parameters
 // (Tracking, DoesRefraction): parse_string() stores "True"/"False" as JSON
 // strings, so cJSON_IsBool() never matches and the handlers 400'd every
@@ -7039,10 +7053,10 @@ esp_err_t Api::handle_get_telescope_axisrates(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    char *axisStr = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Axis"));
-    if (axisStr != NULL)
+    int axis_value = get_axis_param(parsed_request.body);
+    if (axis_value >= 0)
     {
-      Telescope::TelescopeAxis axis = (Telescope::TelescopeAxis)atoi(axisStr);
+      Telescope::TelescopeAxis axis = (Telescope::TelescopeAxis)axis_value;
       std::vector<Telescope::AxisRate> value;
 
       if (check_return(telescope_device->get_axisrates(axis, value), root))
@@ -7088,10 +7102,10 @@ esp_err_t Api::handle_get_telescope_canmoveaxis(httpd_req_t *req)
   if (parsed_request.device_type == DeviceType::Telescope)
   {
     Telescope *telescope_device = (Telescope *)device;
-    char *axisStr = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Axis"));
-    if (axisStr != NULL)
+    int axis_value = get_axis_param(parsed_request.body);
+    if (axis_value >= 0)
     {
-      Telescope::TelescopeAxis axis = (Telescope::TelescopeAxis)atoi(axisStr);
+      Telescope::TelescopeAxis axis = (Telescope::TelescopeAxis)axis_value;
       bool value = false;
 
       if (check_return(telescope_device->get_canmoveaxis(axis, &value), root))
