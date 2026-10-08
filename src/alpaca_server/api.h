@@ -18,6 +18,7 @@
 #define ALPACA_ERR_INVALID_WHILE_SLAVED           0x409
 #define ALPACA_ERR_INVALID_OPERATION              0x40B
 #define ALPACA_ERR_ACTION_NOT_IMPLEMENTED         0x40C
+#define ALPACA_ERR_OPERATION_CANCELLED            0x40E
 
 #define ALPACA_ERR_MESSAGE_NOT_IMPLEMENTED        "Not implemented"
 #define ALPACA_ERR_MESSAGE_INVALID_VALUE          "Invalid value"
@@ -27,6 +28,7 @@
 #define ALPACA_ERR_MESSAGE_INVALID_WHILE_SLAVED   "Invalid while slaved"
 #define ALPACA_ERR_MESSAGE_INVALID_OPERATION      "Invalid operation"
 #define ALPACA_ERR_MESSAGE_ACTION_NOT_IMPLEMENTED "Action not implemented"
+#define ALPACA_ERR_MESSAGE_OPERATION_CANCELLED    "Operation cancelled"
 
 namespace AlpacaServer
 {

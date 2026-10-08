@@ -83,6 +83,9 @@ esp_err_t error_message(uint16_t error_code, char *buf, size_t len)
   case ALPACA_ERR_ACTION_NOT_IMPLEMENTED:
     strncpy(buf, ALPACA_ERR_MESSAGE_ACTION_NOT_IMPLEMENTED, len);
     break;
+  case ALPACA_ERR_OPERATION_CANCELLED:
+    strncpy(buf, ALPACA_ERR_MESSAGE_OPERATION_CANCELLED, len);
+    break;
   default:
     return ESP_ERR_NOT_FOUND;
   }

@@ -429,6 +429,18 @@ void test_switch_v3_routes_reach_a_device_that_overrides_them()
   TEST_ASSERT_EQUAL_STRING("put_cancelasync", sw.last_call.c_str());
 }
 
+void test_operation_cancelled_has_its_own_message()
+{
+  FakeSwitch sw;
+  sw.ret = ALPACA_ERR_OPERATION_CANCELLED;
+  Server server({&sw});
+
+  FakeResponse r = get("/api/v1/switch/0/statechangecomplete", std::string(CLIENT_IDS) + "&Id=0");
+
+  assert_alpaca_error(r, 0x40E);
+  TEST_ASSERT_EQUAL_STRING("Operation cancelled", cJSON_GetStringValue(field(r, "ErrorMessage")));
+}
+
 // The DeviceState entry with this name, or NULL.
 cJSON *state_entry(const FakeResponse &r, const char *name)
 {
@@ -606,6 +618,7 @@ int main(int argc, char **argv)
   RUN_TEST(test_switch_v3_defaults_model_a_switch_with_no_async);
   RUN_TEST(test_switch_v3_defaults_refuse_an_id_out_of_range);
   RUN_TEST(test_switch_v3_routes_reach_a_device_that_overrides_them);
+  RUN_TEST(test_operation_cancelled_has_its_own_message);
   RUN_TEST(test_switch_devicestate_lists_each_switch_and_skips_a_failed_read);
   RUN_TEST(test_switch_devicestate_lists_statechangecomplete_when_the_device_has_it);
   RUN_TEST(test_switch_devicestate_has_no_switches_when_maxswitch_fails);
