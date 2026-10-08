@@ -1046,15 +1046,13 @@ esp_err_t Api::send_json_response(httpd_req_t *req, alpaca_request_t *parsed_req
   cJSON_AddNumberToObject(root, "ClientTransactionID", parsed_request->client_transaction_id);
   cJSON_AddNumberToObject(root, "ServerTransactionID", parsed_request->server_transaction_id);
 
-  char json[512] = {0};
-  cJSON_bool ret = cJSON_PrintPreallocated(root, json, sizeof(json), false);
-  if (!ret)
-  {
-    ESP_LOGW(TAG, "error allocating json");
-  }
+  char *json = cJSON_PrintUnformatted(root);
   cJSON_Delete(root);
-
-  int json_len = strlen(json);
+  if (!json)
+  {
+    ESP_LOGE(TAG, "error allocating json");
+    status_code = 500;
+  }
 
   switch (status_code)
   {
@@ -1088,7 +1086,8 @@ esp_err_t Api::send_json_response(httpd_req_t *req, alpaca_request_t *parsed_req
   httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
   httpd_resp_set_hdr(req, "Connection", "Keep-Alive");
   httpd_resp_set_hdr(req, "Keep-Alive", "timeout=2, max=100");
-  httpd_resp_send(req, json, json_len);
+  httpd_resp_send(req, json ? json : "", json ? strlen(json) : 0);
+  cJSON_free(json);
 
   if (esp_log_level_get(TAG) >= ESP_LOG_DEBUG)
   {

@@ -177,6 +177,24 @@ void test_put_parameter_names_are_case_sensitive()
   TEST_ASSERT_FALSE(monitor.is_connected);
 }
 
+void test_a_response_over_512_bytes_is_sent_whole()
+{
+  FakeSafetyMonitor monitor;
+  for (int i = 0; i < 100; i++)
+  {
+    monitor.supported_actions.push_back("action" + std::to_string(i));
+  }
+  Server server({&monitor});
+
+  FakeResponse r = get("/api/v1/safetymonitor/0/supportedactions");
+
+  assert_ok(r);
+  TEST_ASSERT_TRUE(r.body.size() > 512);
+  cJSON *value = field(r, "Value");
+  TEST_ASSERT_EQUAL_INT(100, cJSON_GetArraySize(value));
+  TEST_ASSERT_EQUAL_STRING("action99", cJSON_GetStringValue(cJSON_GetArrayItem(value, 99)));
+}
+
 // Telescope UTCDate
 
 void test_put_utcdate_decodes_the_form_value()
@@ -333,6 +351,7 @@ int main(int argc, char **argv)
   RUN_TEST(test_put_connected_sets_the_device);
   RUN_TEST(test_put_connected_refuses_bad_values);
   RUN_TEST(test_put_parameter_names_are_case_sensitive);
+  RUN_TEST(test_a_response_over_512_bytes_is_sent_whole);
   RUN_TEST(test_put_utcdate_decodes_the_form_value);
   RUN_TEST(test_put_utcdate_accepts_seconds_with_and_without_a_fraction);
   RUN_TEST(test_put_utcdate_refuses_a_missing_or_badly_formatted_date);
