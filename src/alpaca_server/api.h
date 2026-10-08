@@ -18,6 +18,7 @@
 #define ALPACA_ERR_INVALID_WHILE_SLAVED           0x409
 #define ALPACA_ERR_INVALID_OPERATION              0x40B
 #define ALPACA_ERR_ACTION_NOT_IMPLEMENTED         0x40C
+#define ALPACA_ERR_OPERATION_CANCELLED            0x40E
 
 #define ALPACA_ERR_MESSAGE_NOT_IMPLEMENTED        "Not implemented"
 #define ALPACA_ERR_MESSAGE_INVALID_VALUE          "Invalid value"
@@ -27,6 +28,7 @@
 #define ALPACA_ERR_MESSAGE_INVALID_WHILE_SLAVED   "Invalid while slaved"
 #define ALPACA_ERR_MESSAGE_INVALID_OPERATION      "Invalid operation"
 #define ALPACA_ERR_MESSAGE_ACTION_NOT_IMPLEMENTED "Action not implemented"
+#define ALPACA_ERR_MESSAGE_OPERATION_CANCELLED    "Operation cancelled"
 
 namespace AlpacaServer
 {
@@ -240,6 +242,11 @@ private:
   static esp_err_t handle_put_switch_setswitchname(httpd_req_t *req);
   static esp_err_t handle_put_switch_setswitchvalue(httpd_req_t *req);
   static esp_err_t handle_get_switch_switchstep(httpd_req_t *req);
+  static esp_err_t handle_get_switch_canasync(httpd_req_t *req);
+  static esp_err_t handle_put_switch_setasync(httpd_req_t *req);
+  static esp_err_t handle_put_switch_setasyncvalue(httpd_req_t *req);
+  static esp_err_t handle_get_switch_statechangecomplete(httpd_req_t *req);
+  static esp_err_t handle_put_switch_cancelasync(httpd_req_t *req);
 
   // Telescope API
 

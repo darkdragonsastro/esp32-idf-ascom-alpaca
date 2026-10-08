@@ -1,6 +1,7 @@
 #include "alpaca_server/api.h"
 
 #include <ctype.h>
+#include <errno.h>
 #include <math.h>
 #include <strings.h>
 
@@ -81,6 +82,9 @@ esp_err_t error_message(uint16_t error_code, char *buf, size_t len)
     break;
   case ALPACA_ERR_ACTION_NOT_IMPLEMENTED:
     strncpy(buf, ALPACA_ERR_MESSAGE_ACTION_NOT_IMPLEMENTED, len);
+    break;
+  case ALPACA_ERR_OPERATION_CANCELLED:
+    strncpy(buf, ALPACA_ERR_MESSAGE_OPERATION_CANCELLED, len);
     break;
   default:
     return ESP_ERR_NOT_FOUND;
@@ -514,6 +518,11 @@ void Api::register_switch_routes(httpd_handle_t server, size_t device_number, Sw
   REGISTER_DEVICE_ROUTE("switch", "setswitchname", device_number, HTTP_PUT, put_switch_setswitchname);
   REGISTER_DEVICE_ROUTE("switch", "setswitchvalue", device_number, HTTP_PUT, put_switch_setswitchvalue);
   REGISTER_DEVICE_ROUTE("switch", "switchstep", device_number, HTTP_GET, get_switch_switchstep);
+  REGISTER_DEVICE_ROUTE("switch", "canasync", device_number, HTTP_GET, get_switch_canasync);
+  REGISTER_DEVICE_ROUTE("switch", "setasync", device_number, HTTP_PUT, put_switch_setasync);
+  REGISTER_DEVICE_ROUTE("switch", "setasyncvalue", device_number, HTTP_PUT, put_switch_setasyncvalue);
+  REGISTER_DEVICE_ROUTE("switch", "statechangecomplete", device_number, HTTP_GET, get_switch_statechangecomplete);
+  REGISTER_DEVICE_ROUTE("switch", "cancelasync", device_number, HTTP_PUT, put_switch_cancelasync);
 }
 
 void Api::register_telescope_routes(httpd_handle_t server, size_t device_number, Telescope *device)
@@ -788,10 +797,54 @@ static bool parse_string(alpaca_request_t *req, char *query, bool case_sensitive
   return ids_ok;
 }
 
+// Reads a whole parameter value as a number. Returns false when the value is
+// empty, starts with whitespace, or has anything after the number. strtod()
+// and strtol() read "" as 0 and skip leading whitespace, so their end
+// pointer alone cannot catch those.
+//
+// parse_double_value() also returns false for nan, inf, a hex float such as
+// 0x1p3, and a number too large or too small for a double (1e400, 1e-9999).
+static bool parse_double_value(const char *str, double *out)
+{
+  if (str == NULL || *str == '\0' || isspace((unsigned char)*str) || strpbrk(str, "xX") != NULL)
+  {
+    return false;
+  }
+  char *endptr;
+  errno = 0;
+  double value = strtod(str, &endptr);
+  if (*endptr != '\0' || errno == ERANGE || !isfinite(value))
+  {
+    return false;
+  }
+  *out = value;
+  return true;
+}
+
+// parse_int32_value() also returns false for a number outside the int32_t
+// range. long is 32 bits on the ESP32, where strtol() sets ERANGE, and 64
+// bits on the test host, where the range check catches it.
+static bool parse_int32_value(const char *str, int32_t *out)
+{
+  if (str == NULL || *str == '\0' || isspace((unsigned char)*str))
+  {
+    return false;
+  }
+  char *endptr;
+  errno = 0;
+  long value = strtol(str, &endptr, 10);
+  if (*endptr != '\0' || errno == ERANGE || value < INT32_MIN || value > INT32_MAX)
+  {
+    return false;
+  }
+  *out = value;
+  return true;
+}
+
 // Alpaca PUT parameters arrive form-urlencoded; parse_string() stores them as
 // JSON *strings*, so cJSON_GetNumberValue() on them yields NAN. Parse one as a
-// double the same way the dome/focuser handlers do, returning NAN when the
-// parameter is absent or malformed. Tolerates a genuine JSON number too.
+// double with parse_double_value(), returning NAN when the parameter is
+// absent or malformed. Tolerates a genuine JSON number too.
 // PUT names match by case; pass case_sensitive = false for GET names, which
 // match in any case.
 static double get_number_param(cJSON *body, const char *key, bool case_sensitive = true)
@@ -801,14 +854,8 @@ static double get_number_param(cJSON *body, const char *key, bool case_sensitive
   {
     return cJSON_GetNumberValue(item);
   }
-  char *str = cJSON_GetStringValue(item);
-  if (!str || *str == '\0')
-  {
-    return NAN;
-  }
-  char *endptr;
-  double value = strtod(str, &endptr);
-  return (*endptr == '\0') ? value : NAN;
+  double value;
+  return parse_double_value(cJSON_GetStringValue(item), &value) ? value : NAN;
 }
 
 // Reads the Axis parameter of a GET, where names match in any case. Returns
@@ -1647,6 +1694,47 @@ esp_err_t Api::handle_get_devicestate(httpd_req_t *req)
     if (((SafetyMonitor *)device)->get_issafe(&b) == ALPACA_OK)
     {
       add_state_bool(state, "IsSafe", b);
+    }
+    break;
+  }
+  case DeviceType::Switch:
+  {
+    // ISwitchV3 names each entry after the property and the switch number:
+    // GetSwitch0, GetSwitch1, ..., then GetSwitchValue0, ..., then
+    // StateChangeComplete0, .... A switch whose read fails is left out.
+    Switch *switch_device = (Switch *)device;
+    int32_t maxswitch = 0;
+    if (switch_device->get_maxswitch(&maxswitch) != ALPACA_OK)
+    {
+      break;
+    }
+    char name[40];
+    for (int32_t i = 0; i < maxswitch; i++)
+    {
+      bool b = false;
+      if (switch_device->get_getswitch(i, &b) == ALPACA_OK)
+      {
+        snprintf(name, sizeof(name), "GetSwitch%ld", (long)i);
+        add_state_bool(state, name, b);
+      }
+    }
+    for (int32_t i = 0; i < maxswitch; i++)
+    {
+      double d = 0;
+      if (switch_device->get_getswitchvalue(i, &d) == ALPACA_OK)
+      {
+        snprintf(name, sizeof(name), "GetSwitchValue%ld", (long)i);
+        add_state_number(state, name, d);
+      }
+    }
+    for (int32_t i = 0; i < maxswitch; i++)
+    {
+      bool b = false;
+      if (switch_device->get_statechangecomplete(i, &b) == ALPACA_OK)
+      {
+        snprintf(name, sizeof(name), "StateChangeComplete%ld", (long)i);
+        add_state_bool(state, name, b);
+      }
     }
     break;
   }
@@ -2754,9 +2842,8 @@ esp_err_t Api::handle_put_dome_slewtoaltitude(httpd_req_t *req)
     char *altitude = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Altitude"));
     if (altitude)
     {
-      char *endptr;
-      double altitude_value = strtof(altitude, &endptr);
-      if (*endptr != '\0')
+      double altitude_value;
+      if (!parse_double_value(altitude, &altitude_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -2797,9 +2884,8 @@ esp_err_t Api::handle_put_dome_slewtoazimuth(httpd_req_t *req)
     char *azimuth = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Azimuth"));
     if (azimuth)
     {
-      char *endptr;
-      double azimuth_value = strtof(azimuth, &endptr);
-      if (*endptr != '\0')
+      double azimuth_value;
+      if (!parse_double_value(azimuth, &azimuth_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -2840,9 +2926,8 @@ esp_err_t Api::handle_put_dome_synctoazimuth(httpd_req_t *req)
     char *azimuth = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Azimuth"));
     if (azimuth)
     {
-      char *endptr;
-      double azimuth_value = strtof(azimuth, &endptr);
-      if (*endptr != '\0')
+      double azimuth_value;
+      if (!parse_double_value(azimuth, &azimuth_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -2987,9 +3072,8 @@ esp_err_t Api::handle_put_filterwheel_position(httpd_req_t *req)
     char *position = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Position"));
     if (position)
     {
-      char *endptr;
-      int32_t position_value = strtol(position, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t position_value;
+      if (!parse_int32_value(position, &position_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -3364,9 +3448,8 @@ esp_err_t Api::handle_put_focuser_move(httpd_req_t *req)
     char *position = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Position"));
     if (position)
     {
-      char *endptr;
-      int32_t position_value = strtol(position, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t position_value;
+      if (!parse_int32_value(position, &position_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -3439,9 +3522,8 @@ esp_err_t Api::handle_put_observingconditions_averageperiod(httpd_req_t *req)
     char *averageperiod = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "AveragePeriod"));
     if (averageperiod)
     {
-      char *endptr;
-      double averageperiod_value = strtof(averageperiod, &endptr);
-      if (*endptr != '\0')
+      double averageperiod_value;
+      if (!parse_double_value(averageperiod, &averageperiod_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4253,9 +4335,8 @@ esp_err_t Api::handle_put_rotator_move(httpd_req_t *req)
     char *position = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Position"));
     if (position)
     {
-      char *endptr;
-      double position_value = strtof(position, &endptr);
-      if (*endptr != '\0')
+      double position_value;
+      if (!parse_double_value(position, &position_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4296,9 +4377,8 @@ esp_err_t Api::handle_put_rotator_moveabsolute(httpd_req_t *req)
     char *position = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Position"));
     if (position)
     {
-      char *endptr;
-      double position_value = strtof(position, &endptr);
-      if (*endptr != '\0')
+      double position_value;
+      if (!parse_double_value(position, &position_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4339,9 +4419,8 @@ esp_err_t Api::handle_put_rotator_movemechanical(httpd_req_t *req)
     char *position = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Position"));
     if (position)
     {
-      char *endptr;
-      double position_value = strtof(position, &endptr);
-      if (*endptr != '\0')
+      double position_value;
+      if (!parse_double_value(position, &position_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4382,9 +4461,8 @@ esp_err_t Api::handle_put_rotator_sync(httpd_req_t *req)
     char *position = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Position"));
     if (position)
     {
-      char *endptr;
-      double position_value = strtof(position, &endptr);
-      if (*endptr != '\0')
+      double position_value;
+      if (!parse_double_value(position, &position_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4489,9 +4567,8 @@ esp_err_t Api::handle_get_switch_canwrite(httpd_req_t *req)
     char *id = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Id"));
     if (id)
     {
-      char *endptr;
-      int32_t id_value = strtol(id, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4536,9 +4613,8 @@ esp_err_t Api::handle_get_switch_getswitch(httpd_req_t *req)
     char *id = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Id"));
     if (id)
     {
-      char *endptr;
-      int32_t id_value = strtol(id, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4583,9 +4659,8 @@ esp_err_t Api::handle_get_switch_getswitchdescription(httpd_req_t *req)
     char *id = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Id"));
     if (id)
     {
-      char *endptr;
-      int32_t id_value = strtol(id, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4630,9 +4705,8 @@ esp_err_t Api::handle_get_switch_getswitchname(httpd_req_t *req)
     char *id = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Id"));
     if (id)
     {
-      char *endptr;
-      int32_t id_value = strtol(id, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4677,9 +4751,8 @@ esp_err_t Api::handle_get_switch_getswitchvalue(httpd_req_t *req)
     char *id = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Id"));
     if (id)
     {
-      char *endptr;
-      int32_t id_value = strtol(id, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4724,9 +4797,8 @@ esp_err_t Api::handle_get_switch_minswitchvalue(httpd_req_t *req)
     char *id = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Id"));
     if (id)
     {
-      char *endptr;
-      int32_t id_value = strtol(id, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4771,9 +4843,8 @@ esp_err_t Api::handle_get_switch_maxswitchvalue(httpd_req_t *req)
     char *id = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Id"));
     if (id)
     {
-      char *endptr;
-      int32_t id_value = strtol(id, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4819,9 +4890,8 @@ esp_err_t Api::handle_put_switch_setswitch(httpd_req_t *req)
     char *state = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "State"));
     if (id && state && (strcasecmp(state, "true") == 0 || strcasecmp(state, "false") == 0))
     {
-      char *endptr;
-      int32_t id_value = strtol(id, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4864,9 +4934,8 @@ esp_err_t Api::handle_put_switch_setswitchname(httpd_req_t *req)
     char *name = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Name"));
     if (id && name)
     {
-      char *endptr;
-      int32_t id_value = strtol(id, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4908,16 +4977,15 @@ esp_err_t Api::handle_put_switch_setswitchvalue(httpd_req_t *req)
     char *value = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Value"));
     if (id && value)
     {
-      char *endptr;
-      int32_t id_value = strtol(id, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
       }
 
-      double value_value = strtod(value, &endptr);
-      if (*endptr != '\0')
+      double value_value;
+      if (!parse_double_value(value, &value_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4958,9 +5026,8 @@ esp_err_t Api::handle_get_switch_switchstep(httpd_req_t *req)
     char *id = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Id"));
     if (id)
     {
-      char *endptr;
-      int32_t id_value = strtol(id, &endptr, 10);
-      if (*endptr != '\0')
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
       {
         cJSON_Delete(root);
         return api->send_error_response(req, &parsed_request, 400);
@@ -4971,6 +5038,234 @@ esp_err_t Api::handle_get_switch_switchstep(httpd_req_t *req)
       {
         cJSON_AddNumberToObject(root, "Value", switchstep);
       }
+    }
+    else
+    {
+      cJSON_Delete(root);
+      return api->send_error_response(req, &parsed_request, 400);
+    }
+  }
+  else
+  {
+    set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
+  }
+
+  return api->send_json_response(req, &parsed_request, root);
+}
+
+esp_err_t Api::handle_get_switch_canasync(httpd_req_t *req)
+{
+  Api *api = (Api *)req->user_ctx;
+  alpaca_request_t parsed_request;
+  esp_err_t err = api->parse_request(req, &parsed_request);
+  if (err != ESP_OK)
+  {
+    return api->send_error_response(req, &parsed_request, err == ESP_ERR_NOT_FOUND ? 404 : 400);
+  }
+  cJSON *root = cJSON_CreateObject();
+  Device *device = api->_devices[parsed_request.device_type][parsed_request.device_number];
+
+  if (parsed_request.device_type == DeviceType::Switch)
+  {
+    Switch *switch_device = (Switch *)device;
+
+    char *id = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Id"));
+    if (id)
+    {
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
+      {
+        cJSON_Delete(root);
+        return api->send_error_response(req, &parsed_request, 400);
+      }
+
+      bool canasync = false;
+      if (check_return(switch_device->get_canasync(id_value, &canasync), root))
+      {
+        cJSON_AddBoolToObject(root, "Value", canasync);
+      }
+    }
+    else
+    {
+      cJSON_Delete(root);
+      return api->send_error_response(req, &parsed_request, 400);
+    }
+  }
+  else
+  {
+    set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
+  }
+
+  return api->send_json_response(req, &parsed_request, root);
+}
+
+esp_err_t Api::handle_put_switch_setasync(httpd_req_t *req)
+{
+  Api *api = (Api *)req->user_ctx;
+  alpaca_request_t parsed_request;
+  esp_err_t err = api->parse_request(req, &parsed_request);
+  if (err != ESP_OK)
+  {
+    return api->send_error_response(req, &parsed_request, err == ESP_ERR_NOT_FOUND ? 404 : 400);
+  }
+  cJSON *root = cJSON_CreateObject();
+  Device *device = api->_devices[parsed_request.device_type][parsed_request.device_number];
+
+  if (parsed_request.device_type == DeviceType::Switch)
+  {
+    Switch *switch_device = (Switch *)device;
+
+    char *id = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Id"));
+    char *state = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "State"));
+    if (id && state && (strcasecmp(state, "true") == 0 || strcasecmp(state, "false") == 0))
+    {
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
+      {
+        cJSON_Delete(root);
+        return api->send_error_response(req, &parsed_request, 400);
+      }
+
+      bool state_value = strcasecmp(state, "true") == 0;
+      check_return(switch_device->put_setasync(id_value, state_value), root);
+    }
+    else
+    {
+      cJSON_Delete(root);
+      return api->send_error_response(req, &parsed_request, 400);
+    }
+  }
+  else
+  {
+    set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
+  }
+
+  return api->send_json_response(req, &parsed_request, root);
+}
+
+esp_err_t Api::handle_put_switch_setasyncvalue(httpd_req_t *req)
+{
+  Api *api = (Api *)req->user_ctx;
+  alpaca_request_t parsed_request;
+  esp_err_t err = api->parse_request(req, &parsed_request);
+  if (err != ESP_OK)
+  {
+    return api->send_error_response(req, &parsed_request, err == ESP_ERR_NOT_FOUND ? 404 : 400);
+  }
+  cJSON *root = cJSON_CreateObject();
+  Device *device = api->_devices[parsed_request.device_type][parsed_request.device_number];
+
+  if (parsed_request.device_type == DeviceType::Switch)
+  {
+    Switch *switch_device = (Switch *)device;
+
+    char *id = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Id"));
+    char *value = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Value"));
+    if (id && value)
+    {
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
+      {
+        cJSON_Delete(root);
+        return api->send_error_response(req, &parsed_request, 400);
+      }
+
+      double value_value;
+      if (!parse_double_value(value, &value_value))
+      {
+        cJSON_Delete(root);
+        return api->send_error_response(req, &parsed_request, 400);
+      }
+
+      check_return(switch_device->put_setasyncvalue(id_value, value_value), root);
+    }
+    else
+    {
+      cJSON_Delete(root);
+      return api->send_error_response(req, &parsed_request, 400);
+    }
+  }
+  else
+  {
+    set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
+  }
+
+  return api->send_json_response(req, &parsed_request, root);
+}
+
+esp_err_t Api::handle_get_switch_statechangecomplete(httpd_req_t *req)
+{
+  Api *api = (Api *)req->user_ctx;
+  alpaca_request_t parsed_request;
+  esp_err_t err = api->parse_request(req, &parsed_request);
+  if (err != ESP_OK)
+  {
+    return api->send_error_response(req, &parsed_request, err == ESP_ERR_NOT_FOUND ? 404 : 400);
+  }
+  cJSON *root = cJSON_CreateObject();
+  Device *device = api->_devices[parsed_request.device_type][parsed_request.device_number];
+
+  if (parsed_request.device_type == DeviceType::Switch)
+  {
+    Switch *switch_device = (Switch *)device;
+
+    char *id = cJSON_GetStringValue(cJSON_GetObjectItem(parsed_request.body, "Id"));
+    if (id)
+    {
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
+      {
+        cJSON_Delete(root);
+        return api->send_error_response(req, &parsed_request, 400);
+      }
+
+      bool statechangecomplete = false;
+      if (check_return(switch_device->get_statechangecomplete(id_value, &statechangecomplete), root))
+      {
+        cJSON_AddBoolToObject(root, "Value", statechangecomplete);
+      }
+    }
+    else
+    {
+      cJSON_Delete(root);
+      return api->send_error_response(req, &parsed_request, 400);
+    }
+  }
+  else
+  {
+    set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
+  }
+
+  return api->send_json_response(req, &parsed_request, root);
+}
+
+esp_err_t Api::handle_put_switch_cancelasync(httpd_req_t *req)
+{
+  Api *api = (Api *)req->user_ctx;
+  alpaca_request_t parsed_request;
+  esp_err_t err = api->parse_request(req, &parsed_request);
+  if (err != ESP_OK)
+  {
+    return api->send_error_response(req, &parsed_request, err == ESP_ERR_NOT_FOUND ? 404 : 400);
+  }
+  cJSON *root = cJSON_CreateObject();
+  Device *device = api->_devices[parsed_request.device_type][parsed_request.device_number];
+
+  if (parsed_request.device_type == DeviceType::Switch)
+  {
+    Switch *switch_device = (Switch *)device;
+
+    char *id = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(parsed_request.body, "Id"));
+    if (id)
+    {
+      int32_t id_value;
+      if (!parse_int32_value(id, &id_value))
+      {
+        cJSON_Delete(root);
+        return api->send_error_response(req, &parsed_request, 400);
+      }
+
+      check_return(switch_device->put_cancelasync(id_value), root);
     }
     else
     {

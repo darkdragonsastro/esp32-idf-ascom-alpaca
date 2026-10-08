@@ -305,6 +305,19 @@ public:
   virtual esp_err_t put_setswitchname(int32_t id, const char *name) = 0;
   virtual esp_err_t put_setswitchvalue(int32_t id, double value) = 0;
   virtual esp_err_t get_switchstep(int32_t id, double *switchstep) = 0;
+
+  // ISwitchV3 members. The defaults model a device with no asynchronous
+  // switches: CanAsync is false, SetAsync, SetAsyncValue and
+  // StateChangeComplete return NotImplemented, and CancelAsync does nothing,
+  // because the spec says CancelAsync must not return NotImplemented. Each
+  // default first returns InvalidValue for an Id outside 0 to MaxSwitch - 1.
+  // A device with asynchronous switches overrides all five and reports
+  // interface version 3.
+  virtual esp_err_t get_canasync(int32_t id, bool *canasync);
+  virtual esp_err_t put_setasync(int32_t id, bool state);
+  virtual esp_err_t put_setasyncvalue(int32_t id, double value);
+  virtual esp_err_t get_statechangecomplete(int32_t id, bool *complete);
+  virtual esp_err_t put_cancelasync(int32_t id);
 };
 
 class Telescope : public Device

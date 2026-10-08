@@ -395,6 +395,11 @@ void switch_members(Checks &c)
       put(c.path("setswitchname"), std::string(CLIENT_IDS) + "&Id=" + BAD_VALUE + "&Name=x")
   );
   put_parameters(c, "setswitchname", {{"Id", "0"}, {"Name", "x"}}, false);
+  get_parameters(c, "canasync", {{"Id", "0"}});
+  get_parameters(c, "statechangecomplete", {{"Id", "0"}});
+  put_parameters(c, "setasync", {{"Id", "0"}, {"State", "True"}});
+  put_parameters(c, "setasyncvalue", {{"Id", "0"}, {"Value", "0"}});
+  put_parameters(c, "cancelasync", {{"Id", "0"}});
 }
 
 void telescope_members(Checks &c)
