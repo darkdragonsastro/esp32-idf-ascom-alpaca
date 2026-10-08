@@ -13,30 +13,31 @@
 static const char *TAG = "alpaca_server_api";
 static AlpacaServer::custom_error_message_handler_t s_err_msg_func = &AlpacaServer::error_message;
 
-// Alpaca ClientID and ClientTransactionID are unsigned 32-bit integers. Any
-// value that is not a plain run of digits in range (negative, blank, text,
-// too large) is treated as absent and echoed back as 0, which is what the
-// specification and ConformU expect.
-static uint32_t parse_uint32_param(const char *value)
+// Alpaca ClientID and ClientTransactionID are unsigned 32-bit integers.
+// Returns false for any value that is not a plain run of digits in range
+// (negative, blank, text, too large). ConformU's strict mode expects a 400
+// for those.
+static bool parse_uint32_param(const char *value, uint32_t *out)
 {
   if (value == NULL || *value == '\0')
   {
-    return 0;
+    return false;
   }
   uint64_t result = 0;
   for (const char *c = value; *c != '\0'; c++)
   {
     if (*c < '0' || *c > '9')
     {
-      return 0;
+      return false;
     }
     result = result * 10 + (uint64_t)(*c - '0');
     if (result > UINT32_MAX)
     {
-      return 0;
+      return false;
     }
   }
-  return (uint32_t)result;
+  *out = (uint32_t)result;
+  return true;
 }
 
 #define REGISTER_DEVICE_ROUTE(device_type, endpoint, device_number, http_method, name)                                 \
@@ -719,8 +720,10 @@ static void url_decode(char *s)
   *out = '\0';
 }
 
-void parse_string(alpaca_request_t *req, char *query, bool case_sensitive = true)
+// Returns false when a ClientID or ClientTransactionID value is not valid.
+static bool parse_string(alpaca_request_t *req, char *query, bool case_sensitive = true)
 {
+  bool ids_ok = true;
   while (query)
   {
     char *key = query;
@@ -749,11 +752,11 @@ void parse_string(alpaca_request_t *req, char *query, bool case_sensitive = true
     {
       if (strcmp(key, "ClientTransactionID") == 0)
       {
-        req->client_transaction_id = parse_uint32_param(value);
+        ids_ok &= parse_uint32_param(value, &req->client_transaction_id);
       }
       else if (strcmp(key, "ClientID") == 0)
       {
-        req->client_id = parse_uint32_param(value);
+        ids_ok &= parse_uint32_param(value, &req->client_id);
       }
       else
       {
@@ -766,13 +769,13 @@ void parse_string(alpaca_request_t *req, char *query, bool case_sensitive = true
       {
         ESP_LOGD(TAG, "ClientTransactionID: '%s'", value);
 
-        req->client_transaction_id = parse_uint32_param(value);
+        ids_ok &= parse_uint32_param(value, &req->client_transaction_id);
       }
       else if (strcasecmp(key, "ClientID") == 0)
       {
         ESP_LOGD(TAG, "ClientID: '%s'", value);
 
-        req->client_id = parse_uint32_param(value);
+        ids_ok &= parse_uint32_param(value, &req->client_id);
       }
       else
       {
@@ -782,6 +785,7 @@ void parse_string(alpaca_request_t *req, char *query, bool case_sensitive = true
 
     query = next;
   }
+  return ids_ok;
 }
 
 // Alpaca PUT parameters arrive form-urlencoded; parse_string() stores them as
@@ -964,6 +968,7 @@ esp_err_t Api::parse_request(httpd_req_t *req, alpaca_request_t *parsed_request)
   parsed_request->server_transaction_id = ++_server_transaction_id;
   _mutex.unlock();
 
+  bool ids_ok = true;
   size_t query_len = httpd_req_get_url_query_len(req);
 
   if (query_len > 512)
@@ -980,7 +985,7 @@ esp_err_t Api::parse_request(httpd_req_t *req, alpaca_request_t *parsed_request)
     if (query[0] != '\0')
     {
       ESP_LOGD(TAG, "Parsing query: %s", query);
-      parse_string(parsed_request, query, false);
+      ids_ok &= parse_string(parsed_request, query, false);
     }
   }
 
@@ -1009,7 +1014,7 @@ esp_err_t Api::parse_request(httpd_req_t *req, alpaca_request_t *parsed_request)
       if (strncasecmp(hdr, "application/x-www-form-urlencoded", 33) == 0)
       {
         ESP_LOGD(TAG, "Parsing form data: %s", buf);
-        parse_string(parsed_request, buf, true);
+        ids_ok &= parse_string(parsed_request, buf, true);
       }
     }
   }
@@ -1036,6 +1041,11 @@ esp_err_t Api::parse_request(httpd_req_t *req, alpaca_request_t *parsed_request)
   if (parsed_request->device_number >= _devices[parsed_request->device_type].size())
   {
     return ESP_ERR_NOT_FOUND;
+  }
+
+  if (!ids_ok)
+  {
+    return ESP_ERR_INVALID_ARG;
   }
 
   return ESP_OK;
