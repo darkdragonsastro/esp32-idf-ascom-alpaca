@@ -1143,7 +1143,6 @@ esp_err_t Api::send_json_response(httpd_req_t *req, alpaca_request_t *parsed_req
   }
 
   httpd_resp_set_type(req, HTTPD_TYPE_JSON);
-  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
   httpd_resp_set_hdr(req, "Connection", "Keep-Alive");
   httpd_resp_set_hdr(req, "Keep-Alive", "timeout=2, max=100");
   httpd_resp_send(req, json ? json : "", json ? strlen(json) : 0);
@@ -1215,7 +1214,6 @@ esp_err_t Api::send_error_response(httpd_req_t *req, alpaca_request_t *parsed_re
     break;
   }
 
-  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
   httpd_resp_set_hdr(req, "Connection", "Keep-Alive");
   httpd_resp_set_hdr(req, "Keep-Alive", "timeout=2, max=100");
   return httpd_resp_send(req, NULL, 0);

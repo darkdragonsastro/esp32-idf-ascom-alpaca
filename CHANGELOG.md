@@ -1,3 +1,33 @@
+## 2.0.0-b0 (2026-10-09)
+
+### BREAKING CHANGE
+
+- each Telescope registers 2 more URI handlers (70
+instead of 68). Raise httpd_config_t.max_uri_handlers by 2 for each
+telescope, or httpd_register_uri_handler fails and ESP_ERROR_CHECK
+aborts at boot.
+- ObservingConditions::get_timesincelastupdate now takes
+const char *sensorname before the output pointer. Every
+ObservingConditions device must update its override.
+
+### Feat
+
+- **api**: pass SensorName to ObservingConditions get_timesincelastupdate (#10)
+
+### Fix
+
+- **api**: stop sending Access-Control-Allow-Origin
+- **api**: refuse empty number parameters, and support ISwitchV3 (#22)
+- **api**: bound the device type and number read from the URI (#21)
+- **api**: refuse bad ClientID and ClientTransactionID values (#20)
+- **api**: keep the connection open after a parse_request error (#19)
+- **api**: send JSON responses longer than 512 bytes (#18)
+- **example**: size max_uri_handlers for the Dome's routes (#17)
+- **api**: register the slewtocoordinates and slewtoaltaz routes (#16)
+- **api**: refuse bad RA/Dec on destinationsideofpier (#15)
+- **api**: refuse a bad Axis on axisrates and canmoveaxis (#14)
+- **api**: decode parameters and check the UTCDate format (#13)
+
 ## 1.4.2 (2026-10-04)
 
 ### Fix
