@@ -735,23 +735,27 @@ static bool parse_string(alpaca_request_t *req, char *query, bool case_sensitive
   bool ids_ok = true;
   while (query)
   {
+    // Split on "&" first, then on the first "=" in the segment. A segment
+    // with no "=" is a name with an empty value.
     char *key = query;
-    char *value = strstr(query, "=");
-
-    if (!value)
-    {
-      break;
-    }
-
-    *value = '\0';
-    value += 1;
-
-    char *next = strstr(value, "&");
+    char *next = strchr(query, '&');
 
     if (next)
     {
       *next = '\0';
       next += 1;
+    }
+
+    char *value = strchr(key, '=');
+
+    if (value)
+    {
+      *value = '\0';
+      value += 1;
+    }
+    else
+    {
+      value = key + strlen(key);
     }
 
     url_decode(key);
