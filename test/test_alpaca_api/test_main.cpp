@@ -165,6 +165,44 @@ void test_put_connected_refuses_bad_values()
   }
 }
 
+// A name with no "=" is a name with an empty value. It must not take the
+// next parameter's name with it (#25).
+void test_a_bare_client_id_gets_a_400_and_keeps_the_next_parameter()
+{
+  FakeSafetyMonitor monitor;
+  Server server({&monitor});
+
+  assert_4xx(get("/api/v1/safetymonitor/0/description", "ClientID&ClientTransactionID=5"));
+  assert_4xx(get("/api/v1/safetymonitor/0/description", "ClientID=1&ClientTransactionID"));
+
+  FakeResponse r = get("/api/v1/safetymonitor/0/description", "Foo&ClientTransactionID=5");
+  assert_ok(r);
+  TEST_ASSERT_EQUAL_INT(5, (int)number(r, "ClientTransactionID"));
+}
+
+void test_a_bare_parameter_in_a_form_body_keeps_the_next_parameter()
+{
+  FakeSafetyMonitor monitor;
+  monitor.is_connected = false;
+  Server server({&monitor});
+
+  FakeResponse r = put("/api/v1/safetymonitor/0/connected", "Foo&Connected=True&ClientTransactionID=7");
+
+  assert_ok(r);
+  TEST_ASSERT_TRUE(monitor.is_connected);
+  TEST_ASSERT_EQUAL_INT(7, (int)number(r, "ClientTransactionID"));
+}
+
+void test_a_value_keeps_an_equals_sign()
+{
+  FakeSwitch sw;
+  Server server({&sw});
+
+  assert_ok(put("/api/v1/switch/0/setswitchname", std::string(CLIENT_IDS) + "&Id=0&Name=a=b"));
+
+  TEST_ASSERT_EQUAL_STRING("a=b", sw.last_name.c_str());
+}
+
 void test_put_parameter_names_are_case_sensitive()
 {
   FakeSafetyMonitor monitor;
@@ -606,6 +644,9 @@ int main(int argc, char **argv)
   RUN_TEST(test_put_connected_sets_the_device);
   RUN_TEST(test_put_connected_refuses_bad_values);
   RUN_TEST(test_put_parameter_names_are_case_sensitive);
+  RUN_TEST(test_a_bare_client_id_gets_a_400_and_keeps_the_next_parameter);
+  RUN_TEST(test_a_bare_parameter_in_a_form_body_keeps_the_next_parameter);
+  RUN_TEST(test_a_value_keeps_an_equals_sign);
   RUN_TEST(test_a_response_over_512_bytes_is_sent_whole);
   RUN_TEST(test_put_utcdate_decodes_the_form_value);
   RUN_TEST(test_put_utcdate_accepts_seconds_with_and_without_a_fraction);

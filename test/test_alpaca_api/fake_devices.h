@@ -552,6 +552,7 @@ public:
   bool override_async = true;
   int32_t last_id = -1;
   double last_value = 0;
+  std::string last_name;
 
   esp_err_t get_maxswitch(int32_t *maxswitch) override
   {
@@ -615,6 +616,7 @@ public:
 
   esp_err_t put_setswitchname(int32_t id, const char *name) override
   {
+    last_name = name;
     return record("put_setswitchname");
   }
 
