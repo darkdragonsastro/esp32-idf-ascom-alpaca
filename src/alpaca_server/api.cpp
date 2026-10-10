@@ -761,6 +761,13 @@ static bool parse_string(alpaca_request_t *req, char *query, bool case_sensitive
     url_decode(key);
     url_decode(value);
 
+    // Skip a segment with no name, such as the empty one between "&&".
+    if (key[0] == '\0')
+    {
+      query = next;
+      continue;
+    }
+
     if (case_sensitive)
     {
       if (strcmp(key, "ClientTransactionID") == 0)
