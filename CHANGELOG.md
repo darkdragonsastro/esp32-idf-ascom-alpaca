@@ -1,3 +1,12 @@
+## 2.0.0-b1 (2026-10-12)
+
+### Fix
+
+- **api**: refuse a request body too big to read
+- **api**: read the whole PUT body before parsing it
+- **api**: read a parameter with no = as an empty value (#26)
+- **api**: stop sending Access-Control-Allow-Origin (#24)
+
 ## 2.0.0-b0 (2026-10-09)
 
 ### BREAKING CHANGE
