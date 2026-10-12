@@ -250,7 +250,12 @@ void test_put_utcdate_accepts_seconds_with_and_without_a_fraction()
   FakeTelescope scope;
   Server server({&scope});
 
-  const char *good[] = {"2026-10-04T12:00:00Z", "2026-10-04T12:00:00.1Z", "2026-10-04T23:59:59.1234567Z", "2026-10-04T12:00:00.123456789Z"};
+  const char *good[] = {
+    "2026-10-04T12:00:00Z",
+    "2026-10-04T12:00:00.1Z",
+    "2026-10-04T23:59:59.1234567Z",
+    "2026-10-04T12:00:00.123456789Z"
+  };
   for (const char *date : good)
   {
     scope.utcdate.clear();
@@ -320,6 +325,39 @@ void test_an_empty_or_blank_number_gets_a_400()
   TEST_ASSERT_EQUAL_STRING("", focuser.last_call.c_str());
   TEST_ASSERT_EQUAL_STRING("", dome.last_call.c_str());
   TEST_ASSERT_EQUAL_STRING("", scope.last_call.c_str());
+}
+
+// esp_http_server can hand a PUT body over in pieces. The whole body must
+// reach the device, not the first piece: "Value=12" cut from "Value=123.45"
+// still parses.
+void test_a_body_that_arrives_in_pieces_is_read_whole()
+{
+  FakeSwitch sw;
+  Server server({&sw});
+  fake_recv_chunk = 4;
+
+  FakeResponse r = put("/api/v1/switch/0/setswitchvalue", std::string("Id=1&Value=123.45&") + CLIENT_IDS);
+
+  assert_ok(r);
+  TEST_ASSERT_EQUAL_INT(1, sw.last_id);
+  TEST_ASSERT_EQUAL_FLOAT(123.45, sw.last_value);
+  TEST_ASSERT_EQUAL_INT(67890, (int)number(r, "ClientTransactionID"));
+}
+
+// A body that cannot be read to the end gets a 400 and never reaches the
+// device, even when the part that did arrive parses.
+void test_a_body_that_cannot_be_read_whole_gets_a_400()
+{
+  FakeSwitch sw;
+  Server server({&sw});
+  const std::string body = std::string("Id=1&Value=123.45&") + CLIENT_IDS;
+  fake_recv_chunk = 12;
+  fake_recv_fail_at = 12;
+
+  FakeResponse r = put("/api/v1/switch/0/setswitchvalue", body);
+
+  TEST_ASSERT_EQUAL_INT(400, r.status);
+  TEST_ASSERT_EQUAL_STRING("", sw.last_call.c_str());
 }
 
 // strtod() reads all of these, but none is a usable Alpaca number.
@@ -652,6 +690,8 @@ int main(int argc, char **argv)
   RUN_TEST(test_put_utcdate_accepts_seconds_with_and_without_a_fraction);
   RUN_TEST(test_put_utcdate_refuses_a_missing_or_badly_formatted_date);
   RUN_TEST(test_an_empty_or_blank_number_gets_a_400);
+  RUN_TEST(test_a_body_that_arrives_in_pieces_is_read_whole);
+  RUN_TEST(test_a_body_that_cannot_be_read_whole_gets_a_400);
   RUN_TEST(test_a_double_that_is_not_finite_or_is_hex_gets_a_400);
   RUN_TEST(test_an_id_outside_int32_gets_a_400);
   RUN_TEST(test_an_id_at_the_int32_limits_reaches_the_device);
