@@ -360,6 +360,21 @@ void test_a_body_that_cannot_be_read_whole_gets_a_400()
   TEST_ASSERT_EQUAL_STRING("", sw.last_call.c_str());
 }
 
+// A body too big to read gets a 400 and never reaches the device. Before,
+// it was skipped and a call with no parameters, like closeshutter, ran.
+void test_a_body_too_big_to_read_gets_a_400()
+{
+  FakeDome dome;
+  Server server({&dome});
+  std::string body = std::string(CLIENT_IDS) + "&Pad=";
+  body.resize(4096, 'x');
+
+  FakeResponse r = put("/api/v1/dome/0/closeshutter", body);
+
+  TEST_ASSERT_EQUAL_INT(400, r.status);
+  TEST_ASSERT_EQUAL_STRING("", dome.last_call.c_str());
+}
+
 // strtod() reads all of these, but none is a usable Alpaca number.
 void test_a_double_that_is_not_finite_or_is_hex_gets_a_400()
 {
@@ -692,6 +707,7 @@ int main(int argc, char **argv)
   RUN_TEST(test_an_empty_or_blank_number_gets_a_400);
   RUN_TEST(test_a_body_that_arrives_in_pieces_is_read_whole);
   RUN_TEST(test_a_body_that_cannot_be_read_whole_gets_a_400);
+  RUN_TEST(test_a_body_too_big_to_read_gets_a_400);
   RUN_TEST(test_a_double_that_is_not_finite_or_is_hex_gets_a_400);
   RUN_TEST(test_an_id_outside_int32_gets_a_400);
   RUN_TEST(test_an_id_at_the_int32_limits_reaches_the_device);

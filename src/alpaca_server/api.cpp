@@ -1049,11 +1049,17 @@ esp_err_t Api::parse_request(httpd_req_t *req, alpaca_request_t *parsed_request)
   }
 
   int len = req->content_len;
-  bool body_ok = true;
+  // A body too big for buf is not read, so the request cannot be trusted.
+  bool body_ok = req->content_len < 4096;
 
   ESP_LOGD(TAG, "Content-Length: %d", len);
 
-  if (len > 0 && len < 4096)
+  if (!body_ok)
+  {
+    ESP_LOGW(TAG, "body of %u bytes is too big to read", (unsigned)req->content_len);
+  }
+
+  if (len > 0 && body_ok)
   {
     char buf[4096];
 
