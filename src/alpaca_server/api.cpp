@@ -1049,19 +1049,40 @@ esp_err_t Api::parse_request(httpd_req_t *req, alpaca_request_t *parsed_request)
   }
 
   int len = req->content_len;
+  // A body too big for buf is not read, so the request cannot be trusted.
+  bool body_ok = req->content_len < 4096;
 
   ESP_LOGD(TAG, "Content-Length: %d", len);
 
-  if (len > 0 && len < 4096)
+  if (!body_ok)
+  {
+    ESP_LOGW(TAG, "body of %u bytes is too big to read", (unsigned)req->content_len);
+  }
+
+  if (len > 0 && body_ok)
   {
     char buf[4096];
-    int recv_len = httpd_req_recv(req, buf, req->content_len);
 
-    ESP_LOGD(TAG, "Received %d bytes", recv_len);
-
-    if (recv_len > 0)
+    // httpd_req_recv can return less than asked for, so read until the whole
+    // body is in. A cut-off body could still parse, with a cut-off value.
+    int received = 0;
+    while (received < len)
     {
-      buf[recv_len] = '\0';
+      int count = httpd_req_recv(req, buf + received, len - received);
+      if (count <= 0)
+      {
+        ESP_LOGW(TAG, "httpd_req_recv: %d after %d of %d bytes", count, received, len);
+        body_ok = false;
+        break;
+      }
+      received += count;
+    }
+
+    ESP_LOGD(TAG, "Received %d bytes", received);
+
+    if (body_ok)
+    {
+      buf[received] = '\0';
 
       size_t hdr_len = httpd_req_get_hdr_value_len(req, "Content-Type");
       char hdr[hdr_len + 1];
@@ -1104,7 +1125,7 @@ esp_err_t Api::parse_request(httpd_req_t *req, alpaca_request_t *parsed_request)
   }
   parsed_request->device_number = device_number;
 
-  if (!ids_ok)
+  if (!ids_ok || !body_ok)
   {
     return ESP_ERR_INVALID_ARG;
   }

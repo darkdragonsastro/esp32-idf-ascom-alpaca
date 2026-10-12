@@ -9,6 +9,8 @@
 
 esp_log_level_t fake_log_level = ESP_LOG_INFO;
 int64_t fake_now_us = 0;
+size_t fake_recv_chunk = 0;
+int fake_recv_fail_at = -1;
 
 namespace
 {
@@ -46,6 +48,8 @@ const char *query_of(httpd_req_t *r)
 void fake_httpd_reset()
 {
   routes.clear();
+  fake_recv_chunk = 0;
+  fake_recv_fail_at = -1;
 }
 
 esp_err_t httpd_register_uri_handler(httpd_handle_t handle, const httpd_uri_t *uri_handler)
@@ -77,10 +81,18 @@ esp_err_t httpd_req_get_url_query_str(httpd_req_t *r, char *buf, size_t buf_len)
 int httpd_req_recv(httpd_req_t *r, char *buf, size_t buf_len)
 {
   Exchange *ex = exchange_of(r);
+  if (fake_recv_fail_at >= 0 && ex->recv_offset >= (size_t)fake_recv_fail_at)
+  {
+    return HTTPD_SOCK_ERR_FAIL;
+  }
   size_t n = ex->body_in.size() - ex->recv_offset;
   if (n > buf_len)
   {
     n = buf_len;
+  }
+  if (fake_recv_chunk > 0 && n > fake_recv_chunk)
+  {
+    n = fake_recv_chunk;
   }
   memcpy(buf, ex->body_in.data() + ex->recv_offset, n);
   ex->recv_offset += n;

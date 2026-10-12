@@ -23,6 +23,15 @@ struct FakeResponse
   std::shared_ptr<cJSON> json;
 };
 
+// Most bytes one httpd_req_recv call returns; 0 means no limit. A real
+// esp_http_server returns what has arrived so far, which can be less than the
+// body.
+extern size_t fake_recv_chunk;
+// httpd_req_recv fails once this many body bytes have been read; -1 means it
+// never fails.
+extern int fake_recv_fail_at;
+
+// Clears the routes and the two settings above.
 void fake_httpd_reset();
 
 FakeResponse fake_request(

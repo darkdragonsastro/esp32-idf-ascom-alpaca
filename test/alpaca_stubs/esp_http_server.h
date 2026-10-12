@@ -40,15 +40,17 @@ typedef struct httpd_uri
   void *user_ctx;
 } httpd_uri_t;
 
-#define HTTPD_200       "200 OK"
-#define HTTPD_204       "204 No Content"
-#define HTTPD_207       "207 Multi-Status"
-#define HTTPD_400       "400 Bad Request"
-#define HTTPD_404       "404 Not Found"
-#define HTTPD_408       "408 Request Timeout"
-#define HTTPD_500       "500 Internal Server Error"
+#define HTTPD_200           "200 OK"
+#define HTTPD_204           "204 No Content"
+#define HTTPD_207           "207 Multi-Status"
+#define HTTPD_400           "400 Bad Request"
+#define HTTPD_404           "404 Not Found"
+#define HTTPD_408           "408 Request Timeout"
+#define HTTPD_500           "500 Internal Server Error"
 
-#define HTTPD_TYPE_JSON "application/json"
+#define HTTPD_TYPE_JSON     "application/json"
+
+#define HTTPD_SOCK_ERR_FAIL -1
 
 esp_err_t httpd_register_uri_handler(httpd_handle_t handle, const httpd_uri_t *uri_handler);
 size_t httpd_req_get_url_query_len(httpd_req_t *r);
