@@ -1,3 +1,9 @@
+## 2.0.0-b2 (2026-10-13)
+
+### Fix
+
+- **api**: send a default Value in a GET error reply (#28)
+
 ## 2.0.0-b1 (2026-10-12)
 
 ### Fix
