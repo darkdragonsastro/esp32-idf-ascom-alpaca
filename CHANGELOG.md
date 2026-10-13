@@ -1,19 +1,4 @@
-## 2.0.0-b2 (2026-10-13)
-
-### Fix
-
-- **api**: send a default Value in a GET error reply (#28)
-
-## 2.0.0-b1 (2026-10-12)
-
-### Fix
-
-- **api**: refuse a request body too big to read
-- **api**: read the whole PUT body before parsing it
-- **api**: read a parameter with no = as an empty value (#26)
-- **api**: stop sending Access-Control-Allow-Origin (#24)
-
-## 2.0.0-b0 (2026-10-09)
+## 2.0.0 (2026-10-13)
 
 ### BREAKING CHANGE
 
@@ -31,7 +16,10 @@ ObservingConditions device must update its override.
 
 ### Fix
 
-- **api**: stop sending Access-Control-Allow-Origin
+- **api**: send a default Value in a GET error reply (#28)
+- **api**: read the whole PUT body before parsing it (#27)
+- **api**: read a parameter with no = as an empty value (#26)
+- **api**: stop sending Access-Control-Allow-Origin (#24)
 - **api**: refuse empty number parameters, and support ISwitchV3 (#22)
 - **api**: bound the device type and number read from the URI (#21)
 - **api**: refuse bad ClientID and ClientTransactionID values (#20)
