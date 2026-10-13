@@ -622,6 +622,47 @@ void test_device_error_is_reported_in_the_body()
   TEST_ASSERT_EQUAL_INT(200, r.status);
   TEST_ASSERT_EQUAL_INT(ALPACA_ERR_NOT_CONNECTED, (int)number(r, "ErrorNumber"));
   TEST_ASSERT_EQUAL_STRING(ALPACA_ERR_MESSAGE_NOT_CONNECTED, cJSON_GetStringValue(field(r, "ErrorMessage")));
+  TEST_ASSERT_TRUE(cJSON_IsFalse(field(r, "Value")));
+}
+
+void test_a_get_error_has_a_default_value_of_the_right_type()
+{
+  FakeDome dome;
+  dome.ret = ALPACA_ERR_NOT_IMPLEMENTED;
+  FakeFilterWheel wheel;
+  wheel.ret = ALPACA_ERR_NOT_CONNECTED;
+  FakeObservingConditions conditions;
+  conditions.ret = ALPACA_ERR_NOT_CONNECTED;
+  Server server({&dome, &wheel, &conditions});
+
+  FakeResponse r = get("/api/v1/dome/0/altitude");
+  TEST_ASSERT_EQUAL_INT(ALPACA_ERR_NOT_IMPLEMENTED, (int)number(r, "ErrorNumber"));
+  TEST_ASSERT_TRUE(cJSON_IsNumber(field(r, "Value")));
+  TEST_ASSERT_EQUAL_INT(0, (int)number(r, "Value"));
+
+  r = get("/api/v1/dome/0/athome");
+  TEST_ASSERT_EQUAL_INT(ALPACA_ERR_NOT_IMPLEMENTED, (int)number(r, "ErrorNumber"));
+  TEST_ASSERT_TRUE(cJSON_IsFalse(field(r, "Value")));
+
+  r = get("/api/v1/observingconditions/0/sensordescription", std::string(CLIENT_IDS) + "&SensorName=Humidity");
+  TEST_ASSERT_EQUAL_INT(ALPACA_ERR_NOT_CONNECTED, (int)number(r, "ErrorNumber"));
+  TEST_ASSERT_EQUAL_STRING("", cJSON_GetStringValue(field(r, "Value")));
+
+  r = get("/api/v1/filterwheel/0/names");
+  TEST_ASSERT_EQUAL_INT(ALPACA_ERR_NOT_CONNECTED, (int)number(r, "ErrorNumber"));
+  TEST_ASSERT_TRUE(cJSON_IsArray(field(r, "Value")));
+  TEST_ASSERT_EQUAL_INT(0, cJSON_GetArraySize(field(r, "Value")));
+}
+
+void test_a_put_error_has_no_value()
+{
+  FakeDome dome;
+  dome.ret = ALPACA_ERR_NOT_IMPLEMENTED;
+  Server server({&dome});
+
+  FakeResponse r = put("/api/v1/dome/0/slewtoaltitude", std::string(CLIENT_IDS) + "&Altitude=10");
+
+  TEST_ASSERT_EQUAL_INT(ALPACA_ERR_NOT_IMPLEMENTED, (int)number(r, "ErrorNumber"));
   TEST_ASSERT_NULL(field(r, "Value"));
 }
 
@@ -721,6 +762,8 @@ int main(int argc, char **argv)
   RUN_TEST(test_switch_devicestate_has_no_switches_when_maxswitch_fails);
   RUN_TEST(test_bad_urls_get_a_4xx_status);
   RUN_TEST(test_device_error_is_reported_in_the_body);
+  RUN_TEST(test_a_get_error_has_a_default_value_of_the_right_type);
+  RUN_TEST(test_a_put_error_has_no_value);
   RUN_TEST(test_every_device_type_routes_to_its_device);
   run_device_protocol_tests();
   return UNITY_END();
