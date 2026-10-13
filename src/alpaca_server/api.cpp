@@ -1376,8 +1376,9 @@ void set_error(esp_err_t err, cJSON *root)
 }
 
 // A GET reply needs a Value even when it reports an error, or ConformU's
-// strict protocol check logs an issue. Like ASCOMLibrary, send the default
-// for the type. type is cJSON_False, cJSON_Number, cJSON_String or cJSON_Array.
+// strict protocol check logs an issue. ASCOMLibrary sends false or 0 for bool
+// and number replies. Its string and list replies drop Value, so send "" and
+// [] instead. type is cJSON_False, cJSON_Number, cJSON_String or cJSON_Array.
 static void add_value_on_error(cJSON *root, int type)
 {
   cJSON *error = cJSON_GetObjectItem(root, "ErrorNumber");
