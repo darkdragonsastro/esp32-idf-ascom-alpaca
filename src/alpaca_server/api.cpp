@@ -1375,6 +1375,37 @@ void set_error(esp_err_t err, cJSON *root)
   }
 }
 
+// A GET reply needs a Value even when it reports an error, or ConformU's
+// strict protocol check logs an issue. ASCOMLibrary sends false or 0 for bool
+// and number replies. Its string and list replies drop Value, so send "" and
+// [] instead. type is cJSON_False, cJSON_Number, cJSON_String or cJSON_Array.
+static void add_value_on_error(cJSON *root, int type)
+{
+  cJSON *error = cJSON_GetObjectItem(root, "ErrorNumber");
+  if (!error || error->valueint == 0 || cJSON_HasObjectItem(root, "Value"))
+  {
+    return;
+  }
+  switch (type)
+  {
+  case cJSON_False:
+    cJSON_AddFalseToObject(root, "Value");
+    break;
+  case cJSON_Number:
+    cJSON_AddNumberToObject(root, "Value", 0);
+    break;
+  case cJSON_String:
+    cJSON_AddStringToObject(root, "Value", "");
+    break;
+  case cJSON_Array:
+    cJSON_AddArrayToObject(root, "Value");
+    break;
+  default:
+    ESP_LOGE(TAG, "add_value_on_error: no default for cJSON type %d", type);
+    break;
+  }
+}
+
 bool check_return(esp_err_t err, cJSON *root)
 {
   if (err == ALPACA_OK)
@@ -1564,6 +1595,7 @@ esp_err_t Api::handle_get_connected(httpd_req_t *req)
     cJSON_AddBoolToObject(root, "Value", connected);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -1646,6 +1678,7 @@ esp_err_t Api::handle_get_connecting(httpd_req_t *req)
     cJSON_AddBoolToObject(root, "Value", connecting);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -1819,6 +1852,7 @@ esp_err_t Api::handle_get_description(httpd_req_t *req)
     cJSON_AddStringToObject(root, "Value", buf);
   }
 
+  add_value_on_error(root, cJSON_String);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -1840,6 +1874,7 @@ esp_err_t Api::handle_get_driverinfo(httpd_req_t *req)
     cJSON_AddStringToObject(root, "Value", buf);
   }
 
+  add_value_on_error(root, cJSON_String);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -1861,6 +1896,7 @@ esp_err_t Api::handle_get_driverversion(httpd_req_t *req)
     cJSON_AddStringToObject(root, "Value", buf);
   }
 
+  add_value_on_error(root, cJSON_String);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -1882,6 +1918,7 @@ esp_err_t Api::handle_get_interfaceversion(httpd_req_t *req)
     cJSON_AddNumberToObject(root, "Value", version);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -1903,6 +1940,7 @@ esp_err_t Api::handle_get_name(httpd_req_t *req)
     cJSON_AddStringToObject(root, "Value", buf);
   }
 
+  add_value_on_error(root, cJSON_String);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -1931,6 +1969,7 @@ esp_err_t Api::handle_get_supportedactions(httpd_req_t *req)
     cJSON_AddItemToObject(root, "Value", value);
   }
 
+  add_value_on_error(root, cJSON_Array);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -1965,6 +2004,7 @@ esp_err_t Api::handle_get_covercalibrator_brightness(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -1995,6 +2035,7 @@ esp_err_t Api::handle_get_covercalibrator_calibratorstate(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -2025,6 +2066,7 @@ esp_err_t Api::handle_get_covercalibrator_coverstate(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -2055,6 +2097,7 @@ esp_err_t Api::handle_get_covercalibrator_maxbrightness(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -2238,6 +2281,7 @@ esp_err_t Api::handle_get_dome_altitude(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -2268,6 +2312,7 @@ esp_err_t Api::handle_get_dome_athome(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -2298,6 +2343,7 @@ esp_err_t Api::handle_get_dome_atpark(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -2328,6 +2374,7 @@ esp_err_t Api::handle_get_dome_azimuth(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -2358,6 +2405,7 @@ esp_err_t Api::handle_get_dome_canfindhome(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -2388,6 +2436,7 @@ esp_err_t Api::handle_get_dome_canpark(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -2418,6 +2467,7 @@ esp_err_t Api::handle_get_dome_cansetaltitude(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -2448,6 +2498,7 @@ esp_err_t Api::handle_get_dome_cansetazimuth(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -2478,6 +2529,7 @@ esp_err_t Api::handle_get_dome_cansetpark(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -2508,6 +2560,7 @@ esp_err_t Api::handle_get_dome_cansetshutter(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -2538,6 +2591,7 @@ esp_err_t Api::handle_get_dome_canslave(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -2568,6 +2622,7 @@ esp_err_t Api::handle_get_dome_cansyncazimuth(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -2598,6 +2653,7 @@ esp_err_t Api::handle_get_dome_shutterstatus(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -2628,6 +2684,7 @@ esp_err_t Api::handle_get_dome_slaved(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -2694,6 +2751,7 @@ esp_err_t Api::handle_get_dome_slewing(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3014,6 +3072,7 @@ esp_err_t Api::handle_get_filterwheel_focusoffsets(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Array);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3050,6 +3109,7 @@ esp_err_t Api::handle_get_filterwheel_names(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Array);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3080,6 +3140,7 @@ esp_err_t Api::handle_get_filterwheel_position(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3154,6 +3215,7 @@ esp_err_t Api::handle_get_focuser_absolute(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3184,6 +3246,7 @@ esp_err_t Api::handle_get_focuser_ismoving(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3214,6 +3277,7 @@ esp_err_t Api::handle_get_focuser_maxincrement(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3244,6 +3308,7 @@ esp_err_t Api::handle_get_focuser_maxstep(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3274,6 +3339,7 @@ esp_err_t Api::handle_get_focuser_position(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3304,6 +3370,7 @@ esp_err_t Api::handle_get_focuser_stepsize(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3334,6 +3401,7 @@ esp_err_t Api::handle_get_focuser_tempcomp(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3400,6 +3468,7 @@ esp_err_t Api::handle_get_focuser_tempcompavailable(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3430,6 +3499,7 @@ esp_err_t Api::handle_get_focuser_temperature(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3530,6 +3600,7 @@ esp_err_t Api::handle_get_observingconditions_averageperiod(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3602,6 +3673,7 @@ esp_err_t Api::handle_get_observingconditions_cloudcover(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3632,6 +3704,7 @@ esp_err_t Api::handle_get_observingconditions_dewpoint(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3662,6 +3735,7 @@ esp_err_t Api::handle_get_observingconditions_humidity(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3692,6 +3766,7 @@ esp_err_t Api::handle_get_observingconditions_pressure(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3722,6 +3797,7 @@ esp_err_t Api::handle_get_observingconditions_rainrate(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3752,6 +3828,7 @@ esp_err_t Api::handle_get_observingconditions_skybrightness(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3782,6 +3859,7 @@ esp_err_t Api::handle_get_observingconditions_skyquality(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3812,6 +3890,7 @@ esp_err_t Api::handle_get_observingconditions_skytemperature(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3842,6 +3921,7 @@ esp_err_t Api::handle_get_observingconditions_starfwhm(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3872,6 +3952,7 @@ esp_err_t Api::handle_get_observingconditions_temperature(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3902,6 +3983,7 @@ esp_err_t Api::handle_get_observingconditions_winddirection(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3932,6 +4014,7 @@ esp_err_t Api::handle_get_observingconditions_windgust(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -3962,6 +4045,7 @@ esp_err_t Api::handle_get_observingconditions_windspeed(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -4029,6 +4113,7 @@ esp_err_t Api::handle_get_observingconditions_sensordescription(httpd_req_t *req
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_String);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -4069,6 +4154,7 @@ esp_err_t Api::handle_get_observingconditions_timesincelastupdate(httpd_req_t *r
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -4101,6 +4187,7 @@ esp_err_t Api::handle_get_rotator_canreverse(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -4131,6 +4218,7 @@ esp_err_t Api::handle_get_rotator_ismoving(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -4161,6 +4249,7 @@ esp_err_t Api::handle_get_rotator_mechanicalposition(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -4191,6 +4280,7 @@ esp_err_t Api::handle_get_rotator_position(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -4221,6 +4311,7 @@ esp_err_t Api::handle_get_rotator_reverse(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -4287,6 +4378,7 @@ esp_err_t Api::handle_get_rotator_stepsize(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -4317,6 +4409,7 @@ esp_err_t Api::handle_get_rotator_targetposition(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -4543,6 +4636,7 @@ esp_err_t Api::handle_get_safetymonitor_issafe(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -4575,6 +4669,7 @@ esp_err_t Api::handle_get_switch_maxswitch(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -4621,6 +4716,7 @@ esp_err_t Api::handle_get_switch_canwrite(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -4667,6 +4763,7 @@ esp_err_t Api::handle_get_switch_getswitch(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -4713,6 +4810,7 @@ esp_err_t Api::handle_get_switch_getswitchdescription(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_String);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -4759,6 +4857,7 @@ esp_err_t Api::handle_get_switch_getswitchname(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_String);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -4805,6 +4904,7 @@ esp_err_t Api::handle_get_switch_getswitchvalue(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -4851,6 +4951,7 @@ esp_err_t Api::handle_get_switch_minswitchvalue(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -4897,6 +4998,7 @@ esp_err_t Api::handle_get_switch_maxswitchvalue(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5080,6 +5182,7 @@ esp_err_t Api::handle_get_switch_switchstep(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5126,6 +5229,7 @@ esp_err_t Api::handle_get_switch_canasync(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5266,6 +5370,7 @@ esp_err_t Api::handle_get_switch_statechangecomplete(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5339,6 +5444,7 @@ esp_err_t Api::handle_get_telescope_alignmentmode(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5368,6 +5474,7 @@ esp_err_t Api::handle_get_telescope_altitude(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5397,6 +5504,7 @@ esp_err_t Api::handle_get_telescope_aperturearea(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5426,6 +5534,7 @@ esp_err_t Api::handle_get_telescope_aperturediameter(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5455,6 +5564,7 @@ esp_err_t Api::handle_get_telescope_athome(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5484,6 +5594,7 @@ esp_err_t Api::handle_get_telescope_atpark(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5513,6 +5624,7 @@ esp_err_t Api::handle_get_telescope_azimuth(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5542,6 +5654,7 @@ esp_err_t Api::handle_get_telescope_canfindhome(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5571,6 +5684,7 @@ esp_err_t Api::handle_get_telescope_canpark(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5600,6 +5714,7 @@ esp_err_t Api::handle_get_telescope_canpulseguide(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5629,6 +5744,7 @@ esp_err_t Api::handle_get_telescope_cansetdeclinationrate(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5658,6 +5774,7 @@ esp_err_t Api::handle_get_telescope_cansetguiderates(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5687,6 +5804,7 @@ esp_err_t Api::handle_get_telescope_cansetpark(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5716,6 +5834,7 @@ esp_err_t Api::handle_get_telescope_cansetpierside(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5745,6 +5864,7 @@ esp_err_t Api::handle_get_telescope_cansetrightascensionrate(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5774,6 +5894,7 @@ esp_err_t Api::handle_get_telescope_cansettracking(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5803,6 +5924,7 @@ esp_err_t Api::handle_get_telescope_canslew(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5832,6 +5954,7 @@ esp_err_t Api::handle_get_telescope_canslewaltaz(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5861,6 +5984,7 @@ esp_err_t Api::handle_get_telescope_canslewaltazasync(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5890,6 +6014,7 @@ esp_err_t Api::handle_get_telescope_canslewasync(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5919,6 +6044,7 @@ esp_err_t Api::handle_get_telescope_cansync(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5948,6 +6074,7 @@ esp_err_t Api::handle_get_telescope_cansyncaltaz(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -5977,6 +6104,7 @@ esp_err_t Api::handle_get_telescope_canunpark(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -6006,6 +6134,7 @@ esp_err_t Api::handle_get_telescope_declination(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -6035,6 +6164,7 @@ esp_err_t Api::handle_get_telescope_declinationrate(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -6100,6 +6230,7 @@ esp_err_t Api::handle_get_telescope_doesrefraction(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -6165,6 +6296,7 @@ esp_err_t Api::handle_get_telescope_equatorialsystem(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -6194,6 +6326,7 @@ esp_err_t Api::handle_get_telescope_focallength(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -6223,6 +6356,7 @@ esp_err_t Api::handle_get_telescope_guideratedeclination(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -6288,6 +6422,7 @@ esp_err_t Api::handle_get_telescope_guideraterightascension(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -6353,6 +6488,7 @@ esp_err_t Api::handle_get_telescope_ispulseguiding(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -6382,6 +6518,7 @@ esp_err_t Api::handle_get_telescope_rightascension(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -6411,6 +6548,7 @@ esp_err_t Api::handle_get_telescope_rightascensionrate(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -6476,6 +6614,7 @@ esp_err_t Api::handle_get_telescope_sideofpier(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -6543,6 +6682,7 @@ esp_err_t Api::handle_get_telescope_siderealtime(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -6572,6 +6712,7 @@ esp_err_t Api::handle_get_telescope_siteelevation(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -6637,6 +6778,7 @@ esp_err_t Api::handle_get_telescope_sitelatitude(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -6702,6 +6844,7 @@ esp_err_t Api::handle_get_telescope_sitelongitude(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -6767,6 +6910,7 @@ esp_err_t Api::handle_get_telescope_slewing(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -6796,6 +6940,7 @@ esp_err_t Api::handle_get_telescope_slewsettletime(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -6861,6 +7006,7 @@ esp_err_t Api::handle_get_telescope_targetdeclination(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -6926,6 +7072,7 @@ esp_err_t Api::handle_get_telescope_targetrightascension(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -6991,6 +7138,7 @@ esp_err_t Api::handle_get_telescope_tracking(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -7056,6 +7204,7 @@ esp_err_t Api::handle_get_telescope_trackingrate(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -7126,6 +7275,7 @@ esp_err_t Api::handle_get_telescope_trackingrates(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Array);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -7155,6 +7305,7 @@ esp_err_t Api::handle_get_telescope_utcdate(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_String);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -7262,6 +7413,7 @@ esp_err_t Api::handle_get_telescope_axisrates(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Array);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -7302,6 +7454,7 @@ esp_err_t Api::handle_get_telescope_canmoveaxis(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
@@ -7342,6 +7495,7 @@ esp_err_t Api::handle_get_telescope_destinationsideofpier(httpd_req_t *req)
     set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
   }
 
+  add_value_on_error(root, cJSON_Number);
   return api->send_json_response(req, &parsed_request, root);
 }
 
