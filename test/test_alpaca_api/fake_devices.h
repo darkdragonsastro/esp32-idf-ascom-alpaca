@@ -195,6 +195,11 @@ public:
 class FakeCoverCalibratorV2 : public FakeCoverCalibrator
 {
 public:
+  FakeCoverCalibratorV2()
+  {
+    interface_version = 2;
+  }
+
   esp_err_t get_calibratorchanging(bool *changing) override
   {
     return read("get_calibratorchanging", changing);

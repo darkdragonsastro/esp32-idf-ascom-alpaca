@@ -319,20 +319,20 @@ void Api::register_covercalibrator_routes(httpd_handle_t server, size_t device_n
   REGISTER_DEVICE_ROUTE("covercalibrator", "brightness", device_number, HTTP_GET, get_covercalibrator_brightness);
   REGISTER_DEVICE_ROUTE(
       "covercalibrator",
-      "calibratorstate",
-      device_number,
-      HTTP_GET,
-      get_covercalibrator_calibratorstate
-  );
-  REGISTER_DEVICE_ROUTE("covercalibrator", "coverstate", device_number, HTTP_GET, get_covercalibrator_coverstate);
-  REGISTER_DEVICE_ROUTE(
-      "covercalibrator",
       "calibratorchanging",
       device_number,
       HTTP_GET,
       get_covercalibrator_calibratorchanging
   );
+  REGISTER_DEVICE_ROUTE(
+      "covercalibrator",
+      "calibratorstate",
+      device_number,
+      HTTP_GET,
+      get_covercalibrator_calibratorstate
+  );
   REGISTER_DEVICE_ROUTE("covercalibrator", "covermoving", device_number, HTTP_GET, get_covercalibrator_covermoving);
+  REGISTER_DEVICE_ROUTE("covercalibrator", "coverstate", device_number, HTTP_GET, get_covercalibrator_coverstate);
   REGISTER_DEVICE_ROUTE("covercalibrator", "maxbrightness", device_number, HTTP_GET, get_covercalibrator_maxbrightness);
   REGISTER_DEVICE_ROUTE("covercalibrator", "calibratoroff", device_number, HTTP_PUT, put_covercalibrator_calibratoroff);
   REGISTER_DEVICE_ROUTE("covercalibrator", "calibratoron", device_number, HTTP_PUT, put_covercalibrator_calibratoron);

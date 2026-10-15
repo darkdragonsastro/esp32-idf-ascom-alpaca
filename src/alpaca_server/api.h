@@ -128,10 +128,10 @@ private:
 
   // CoverCalibrator API
   static esp_err_t handle_get_covercalibrator_brightness(httpd_req_t *req);
-  static esp_err_t handle_get_covercalibrator_calibratorstate(httpd_req_t *req);
-  static esp_err_t handle_get_covercalibrator_coverstate(httpd_req_t *req);
   static esp_err_t handle_get_covercalibrator_calibratorchanging(httpd_req_t *req);
+  static esp_err_t handle_get_covercalibrator_calibratorstate(httpd_req_t *req);
   static esp_err_t handle_get_covercalibrator_covermoving(httpd_req_t *req);
+  static esp_err_t handle_get_covercalibrator_coverstate(httpd_req_t *req);
   static esp_err_t handle_get_covercalibrator_maxbrightness(httpd_req_t *req);
   static esp_err_t handle_put_covercalibrator_calibratoroff(httpd_req_t *req);
   static esp_err_t handle_put_covercalibrator_calibratoron(httpd_req_t *req);
