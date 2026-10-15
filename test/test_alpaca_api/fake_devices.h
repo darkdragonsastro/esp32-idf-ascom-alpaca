@@ -105,6 +105,9 @@ public:
 class FakeCoverCalibrator : public FakeDevice<CoverCalibrator>
 {
 public:
+  CalibratorState calibrator_state = CalibratorState::Off;
+  CoverState cover_state = CoverState::Closed;
+
   esp_err_t get_brightness(uint32_t *brightness) override
   {
     return record("get_brightness");
@@ -112,11 +115,13 @@ public:
 
   esp_err_t get_calibratorstate(CalibratorState *state) override
   {
+    *state = calibrator_state;
     return record("get_calibratorstate");
   }
 
   esp_err_t get_coverstate(CoverState *state) override
   {
+    *state = cover_state;
     return record("get_coverstate");
   }
 
@@ -982,6 +987,7 @@ public:
 
   esp_err_t get_utcdate(std::string &utcdate) override
   {
+    utcdate = this->utcdate;
     return record("get_utcdate");
   }
 

@@ -1699,6 +1699,14 @@ static void add_state_number(cJSON *state, const char *name, double value)
   cJSON_AddItemToArray(state, item);
 }
 
+static void add_state_string(cJSON *state, const char *name, const char *value)
+{
+  cJSON *item = cJSON_CreateObject();
+  cJSON_AddStringToObject(item, "Name", name);
+  cJSON_AddStringToObject(item, "Value", value);
+  cJSON_AddItemToArray(state, item);
+}
+
 // DeviceState returns the device's operational properties in one call. Only
 // properties whose getter succeeds are included, as the specification
 // allows; a NotImplemented or NotConnected property is simply left out.
@@ -1719,6 +1727,31 @@ esp_err_t Api::handle_get_devicestate(httpd_req_t *req)
 
   switch (device->device_type())
   {
+  case DeviceType::CoverCalibrator:
+  {
+    // ICoverCalibratorV2's CoverMoving and CalibratorChanging have no getter
+    // here; ASCOM defines them by state (CoverState Moving, CalibratorState
+    // NotReady), so they come from the state getters.
+    CoverCalibrator *cover_calibrator = (CoverCalibrator *)device;
+    uint32_t brightness = 0;
+    CoverCalibrator::CalibratorState calibrator = CoverCalibrator::CalibratorState::Unknown;
+    CoverCalibrator::CoverState cover = CoverCalibrator::CoverState::Unknown;
+    if (cover_calibrator->get_brightness(&brightness) == ALPACA_OK)
+    {
+      add_state_number(state, "Brightness", brightness);
+    }
+    if (cover_calibrator->get_calibratorstate(&calibrator) == ALPACA_OK)
+    {
+      add_state_bool(state, "CalibratorChanging", calibrator == CoverCalibrator::CalibratorState::NotReady);
+      add_state_number(state, "CalibratorState", (double)calibrator);
+    }
+    if (cover_calibrator->get_coverstate(&cover) == ALPACA_OK)
+    {
+      add_state_bool(state, "CoverMoving", cover == CoverCalibrator::CoverState::Moving);
+      add_state_number(state, "CoverState", (double)cover);
+    }
+    break;
+  }
   case DeviceType::Dome:
   {
     Dome *dome = (Dome *)device;
@@ -1748,6 +1781,40 @@ esp_err_t Api::handle_get_devicestate(httpd_req_t *req)
     if (dome->get_slewing(&b) == ALPACA_OK)
     {
       add_state_bool(state, "Slewing", b);
+    }
+    break;
+  }
+  case DeviceType::ObservingConditions:
+  {
+    ObservingConditions *conditions = (ObservingConditions *)device;
+
+    const struct
+    {
+      const char *name;
+      esp_err_t (ObservingConditions::*get)(double *);
+    } readings[] = {
+      {"CloudCover", &ObservingConditions::get_cloudcover},
+      {"DewPoint", &ObservingConditions::get_dewpoint},
+      {"Humidity", &ObservingConditions::get_humidity},
+      {"Pressure", &ObservingConditions::get_pressure},
+      {"RainRate", &ObservingConditions::get_rainrate},
+      {"SkyBrightness", &ObservingConditions::get_skybrightness},
+      {"SkyQuality", &ObservingConditions::get_skyquality},
+      {"SkyTemperature", &ObservingConditions::get_skytemperature},
+      {"StarFWHM", &ObservingConditions::get_starfwhm},
+      {"Temperature", &ObservingConditions::get_temperature},
+      {"WindDirection", &ObservingConditions::get_winddirection},
+      {"WindGust", &ObservingConditions::get_windgust},
+      {"WindSpeed", &ObservingConditions::get_windspeed},
+    };
+
+    for (const auto &reading : readings)
+    {
+      double d = 0;
+      if ((conditions->*reading.get)(&d) == ALPACA_OK)
+      {
+        add_state_number(state, reading.name, d);
+      }
     }
     break;
   }
@@ -1798,6 +1865,63 @@ esp_err_t Api::handle_get_devicestate(httpd_req_t *req)
         snprintf(name, sizeof(name), "StateChangeComplete%ld", (long)i);
         add_state_bool(state, name, b);
       }
+    }
+    break;
+  }
+  case DeviceType::Telescope:
+  {
+    Telescope *telescope = (Telescope *)device;
+    double d = 0;
+    bool b = false;
+    Telescope::SideOfPier side = Telescope::SideOfPier::Unknown;
+    std::string utcdate;
+    if (telescope->get_altitude(&d) == ALPACA_OK)
+    {
+      add_state_number(state, "Altitude", d);
+    }
+    if (telescope->get_athome(&b) == ALPACA_OK)
+    {
+      add_state_bool(state, "AtHome", b);
+    }
+    if (telescope->get_atpark(&b) == ALPACA_OK)
+    {
+      add_state_bool(state, "AtPark", b);
+    }
+    if (telescope->get_azimuth(&d) == ALPACA_OK)
+    {
+      add_state_number(state, "Azimuth", d);
+    }
+    if (telescope->get_declination(&d) == ALPACA_OK)
+    {
+      add_state_number(state, "Declination", d);
+    }
+    if (telescope->get_ispulseguiding(&b) == ALPACA_OK)
+    {
+      add_state_bool(state, "IsPulseGuiding", b);
+    }
+    if (telescope->get_rightascension(&d) == ALPACA_OK)
+    {
+      add_state_number(state, "RightAscension", d);
+    }
+    if (telescope->get_sideofpier(&side) == ALPACA_OK)
+    {
+      add_state_number(state, "SideOfPier", (double)side);
+    }
+    if (telescope->get_siderealtime(&d) == ALPACA_OK)
+    {
+      add_state_number(state, "SiderealTime", d);
+    }
+    if (telescope->get_slewing(&b) == ALPACA_OK)
+    {
+      add_state_bool(state, "Slewing", b);
+    }
+    if (telescope->get_tracking(&b) == ALPACA_OK)
+    {
+      add_state_bool(state, "Tracking", b);
+    }
+    if (telescope->get_utcdate(utcdate) == ALPACA_OK)
+    {
+      add_state_string(state, "UTCDate", utcdate.c_str());
     }
     break;
   }

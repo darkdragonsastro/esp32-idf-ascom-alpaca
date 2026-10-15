@@ -593,6 +593,118 @@ void test_switch_devicestate_has_no_switches_when_maxswitch_fails()
   TEST_ASSERT_NULL(state_entry(r, "GetSwitchValue0"));
 }
 
+void test_telescope_devicestate_lists_each_operational_property()
+{
+  FakeTelescope telescope;
+  telescope.utcdate = "2026-10-15T12:00:00.000Z";
+  Server server({&telescope});
+
+  FakeResponse r = get("/api/v1/telescope/0/devicestate");
+
+  assert_ok(r);
+  const char *numbers[] = {"Altitude", "Azimuth", "Declination", "RightAscension", "SideOfPier", "SiderealTime"};
+  for (const char *name : numbers)
+  {
+    TEST_ASSERT_TRUE_MESSAGE(cJSON_IsNumber(state_entry(r, name)), name);
+  }
+  const char *bools[] = {"AtHome", "AtPark", "IsPulseGuiding", "Slewing", "Tracking"};
+  for (const char *name : bools)
+  {
+    TEST_ASSERT_TRUE_MESSAGE(cJSON_IsBool(state_entry(r, name)), name);
+  }
+  TEST_ASSERT_EQUAL_STRING("2026-10-15T12:00:00.000Z", cJSON_GetStringValue(state_entry(r, "UTCDate")));
+}
+
+void test_telescope_devicestate_leaves_out_a_failed_read()
+{
+  FakeTelescope telescope;
+  telescope.ret = ALPACA_ERR_NOT_IMPLEMENTED;
+  Server server({&telescope});
+
+  FakeResponse r = get("/api/v1/telescope/0/devicestate");
+
+  assert_ok(r);
+  TEST_ASSERT_NULL(state_entry(r, "Altitude"));
+  TEST_ASSERT_NULL(state_entry(r, "Tracking"));
+  TEST_ASSERT_NULL(state_entry(r, "UTCDate"));
+}
+
+void test_observingconditions_devicestate_lists_each_reading()
+{
+  FakeObservingConditions conditions;
+  Server server({&conditions});
+
+  FakeResponse r = get("/api/v1/observingconditions/0/devicestate");
+
+  assert_ok(r);
+  const char *names[] = {
+    "CloudCover",
+    "DewPoint",
+    "Humidity",
+    "Pressure",
+    "RainRate",
+    "SkyBrightness",
+    "SkyQuality",
+    "SkyTemperature",
+    "StarFWHM",
+    "Temperature",
+    "WindDirection",
+    "WindGust",
+    "WindSpeed"
+  };
+  for (const char *name : names)
+  {
+    TEST_ASSERT_TRUE_MESSAGE(cJSON_IsNumber(state_entry(r, name)), name);
+  }
+}
+
+void test_observingconditions_devicestate_leaves_out_a_failed_read()
+{
+  FakeObservingConditions conditions;
+  conditions.ret = ALPACA_ERR_NOT_IMPLEMENTED;
+  Server server({&conditions});
+
+  FakeResponse r = get("/api/v1/observingconditions/0/devicestate");
+
+  assert_ok(r);
+  TEST_ASSERT_NULL(state_entry(r, "CloudCover"));
+  TEST_ASSERT_NULL(state_entry(r, "WindSpeed"));
+}
+
+void test_covercalibrator_devicestate_reports_moving_and_changing_from_the_states()
+{
+  FakeCoverCalibrator cover;
+  cover.cover_state = CoverCalibrator::CoverState::Moving;
+  cover.calibrator_state = CoverCalibrator::CalibratorState::NotReady;
+  Server server({&cover});
+
+  FakeResponse r = get("/api/v1/covercalibrator/0/devicestate");
+
+  assert_ok(r);
+  TEST_ASSERT_TRUE(cJSON_IsNumber(state_entry(r, "Brightness")));
+  TEST_ASSERT_EQUAL((int)CoverCalibrator::CoverState::Moving, (int)cJSON_GetNumberValue(state_entry(r, "CoverState")));
+  TEST_ASSERT_TRUE(cJSON_IsTrue(state_entry(r, "CoverMoving")));
+  TEST_ASSERT_EQUAL(
+      (int)CoverCalibrator::CalibratorState::NotReady,
+      (int)cJSON_GetNumberValue(state_entry(r, "CalibratorState"))
+  );
+  TEST_ASSERT_TRUE(cJSON_IsTrue(state_entry(r, "CalibratorChanging")));
+}
+
+void test_covercalibrator_devicestate_is_not_moving_or_changing_when_settled()
+{
+  FakeCoverCalibrator cover;
+  cover.cover_state = CoverCalibrator::CoverState::Open;
+  cover.calibrator_state = CoverCalibrator::CalibratorState::Ready;
+  Server server({&cover});
+
+  FakeResponse r = get("/api/v1/covercalibrator/0/devicestate");
+
+  assert_ok(r);
+  TEST_ASSERT_TRUE(cJSON_IsFalse(state_entry(r, "CoverMoving")));
+  TEST_ASSERT_TRUE(cJSON_IsFalse(state_entry(r, "CalibratorChanging")));
+}
+
 // Bad URLs
 
 void test_bad_urls_get_a_4xx_status()
@@ -760,6 +872,12 @@ int main(int argc, char **argv)
   RUN_TEST(test_switch_devicestate_lists_each_switch_and_skips_a_failed_read);
   RUN_TEST(test_switch_devicestate_lists_statechangecomplete_when_the_device_has_it);
   RUN_TEST(test_switch_devicestate_has_no_switches_when_maxswitch_fails);
+  RUN_TEST(test_telescope_devicestate_lists_each_operational_property);
+  RUN_TEST(test_telescope_devicestate_leaves_out_a_failed_read);
+  RUN_TEST(test_observingconditions_devicestate_lists_each_reading);
+  RUN_TEST(test_observingconditions_devicestate_leaves_out_a_failed_read);
+  RUN_TEST(test_covercalibrator_devicestate_reports_moving_and_changing_from_the_states);
+  RUN_TEST(test_covercalibrator_devicestate_is_not_moving_or_changing_when_settled);
   RUN_TEST(test_bad_urls_get_a_4xx_status);
   RUN_TEST(test_device_error_is_reported_in_the_body);
   RUN_TEST(test_a_get_error_has_a_default_value_of_the_right_type);
