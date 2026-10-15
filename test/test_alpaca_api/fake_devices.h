@@ -5,6 +5,7 @@
 #pragma once
 
 #include <alpaca_server/api.h>
+#include <functional>
 #include <map>
 #include <set>
 #include <stdio.h>
@@ -28,6 +29,17 @@ public:
   // leaves its output alone.
   std::map<std::string, double> values;
   std::set<std::string> failing;
+  // What get_devicestate() adds to the list before it returns.
+  std::function<void(DeviceState &)> build_state;
+
+  esp_err_t get_devicestate(DeviceState &state) override
+  {
+    if (build_state)
+    {
+      build_state(state);
+    }
+    return record("get_devicestate");
+  }
 
   esp_err_t action(const char *action, const char *parameters, char *buf, size_t len) override
   {
