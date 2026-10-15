@@ -673,13 +673,14 @@ void test_telescope_devicestate_leaves_out_only_a_failed_read()
     assert_ok(r);
     for (int i = 0; i < 12; i++)
     {
+      std::string message = std::string(getters[failed]) + " failed, checking " + names[i];
       if (i == failed)
       {
-        TEST_ASSERT_NULL_MESSAGE(state_entry(r, names[i]), getters[failed]);
+        TEST_ASSERT_NULL_MESSAGE(state_entry(r, names[i]), message.c_str());
       }
       else
       {
-        TEST_ASSERT_NOT_NULL_MESSAGE(state_entry(r, names[i]), getters[failed]);
+        TEST_ASSERT_NOT_NULL_MESSAGE(state_entry(r, names[i]), message.c_str());
       }
     }
   }
@@ -753,13 +754,14 @@ void test_observingconditions_devicestate_leaves_out_only_a_failed_read()
     assert_ok(r);
     for (int i = 0; i < 13; i++)
     {
+      std::string message = std::string(observing_getters[failed]) + " failed, checking " + observing_names[i];
       if (i == failed)
       {
-        TEST_ASSERT_NULL_MESSAGE(state_entry(r, observing_names[i]), observing_getters[failed]);
+        TEST_ASSERT_NULL_MESSAGE(state_entry(r, observing_names[i]), message.c_str());
       }
       else
       {
-        TEST_ASSERT_NOT_NULL_MESSAGE(state_entry(r, observing_names[i]), observing_getters[failed]);
+        TEST_ASSERT_NOT_NULL_MESSAGE(state_entry(r, observing_names[i]), message.c_str());
       }
     }
   }
