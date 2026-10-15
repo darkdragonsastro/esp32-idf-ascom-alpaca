@@ -135,6 +135,11 @@ public:
   virtual esp_err_t get_coverstate(CoverState *state) = 0;
   virtual esp_err_t get_maxbrightness(uint32_t *max) = 0;
 
+  // ICoverCalibratorV2. The defaults return NotImplemented; a device that
+  // reports interface version 2 overrides them.
+  virtual esp_err_t get_calibratorchanging(bool *changing);
+  virtual esp_err_t get_covermoving(bool *moving);
+
   virtual esp_err_t turn_calibratoroff() = 0;
   virtual esp_err_t turn_calibratoron(int32_t brightness) = 0;
   virtual esp_err_t closecover() = 0;

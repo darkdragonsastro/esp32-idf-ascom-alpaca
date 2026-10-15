@@ -250,7 +250,8 @@ void camera_members(Checks &c)
 
 void covercalibrator_members(Checks &c)
 {
-  for (const char *m : {"brightness", "calibratorstate", "coverstate", "maxbrightness"})
+  for (const char *m :
+       {"brightness", "calibratorchanging", "calibratorstate", "covermoving", "coverstate", "maxbrightness"})
   {
     get_no_parameters(c, m);
   }
@@ -494,7 +495,8 @@ void test_camera_protocol()
 
 void test_covercalibrator_protocol()
 {
-  run_device<FakeCoverCalibrator>("covercalibrator", covercalibrator_members);
+  // ConformU calls the V2 members only on a V2 device.
+  run_device<FakeCoverCalibratorV2>("covercalibrator", covercalibrator_members);
 }
 
 void test_dome_protocol()

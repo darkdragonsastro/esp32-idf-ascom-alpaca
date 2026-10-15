@@ -325,6 +325,14 @@ void Api::register_covercalibrator_routes(httpd_handle_t server, size_t device_n
       get_covercalibrator_calibratorstate
   );
   REGISTER_DEVICE_ROUTE("covercalibrator", "coverstate", device_number, HTTP_GET, get_covercalibrator_coverstate);
+  REGISTER_DEVICE_ROUTE(
+      "covercalibrator",
+      "calibratorchanging",
+      device_number,
+      HTTP_GET,
+      get_covercalibrator_calibratorchanging
+  );
+  REGISTER_DEVICE_ROUTE("covercalibrator", "covermoving", device_number, HTTP_GET, get_covercalibrator_covermoving);
   REGISTER_DEVICE_ROUTE("covercalibrator", "maxbrightness", device_number, HTTP_GET, get_covercalibrator_maxbrightness);
   REGISTER_DEVICE_ROUTE("covercalibrator", "calibratoroff", device_number, HTTP_PUT, put_covercalibrator_calibratoroff);
   REGISTER_DEVICE_ROUTE("covercalibrator", "calibratoron", device_number, HTTP_PUT, put_covercalibrator_calibratoron);
@@ -1729,25 +1737,29 @@ esp_err_t Api::handle_get_devicestate(httpd_req_t *req)
   {
   case DeviceType::CoverCalibrator:
   {
-    // ICoverCalibratorV2's CoverMoving and CalibratorChanging have no getter
-    // here; ASCOM defines them by state (CoverState Moving, CalibratorState
-    // NotReady), so they come from the state getters.
     CoverCalibrator *cover_calibrator = (CoverCalibrator *)device;
     uint32_t brightness = 0;
+    bool b = false;
     CoverCalibrator::CalibratorState calibrator = CoverCalibrator::CalibratorState::Unknown;
     CoverCalibrator::CoverState cover = CoverCalibrator::CoverState::Unknown;
     if (cover_calibrator->get_brightness(&brightness) == ALPACA_OK)
     {
       add_state_number(state, "Brightness", brightness);
     }
+    if (cover_calibrator->get_calibratorchanging(&b) == ALPACA_OK)
+    {
+      add_state_bool(state, "CalibratorChanging", b);
+    }
     if (cover_calibrator->get_calibratorstate(&calibrator) == ALPACA_OK)
     {
-      add_state_bool(state, "CalibratorChanging", calibrator == CoverCalibrator::CalibratorState::NotReady);
       add_state_number(state, "CalibratorState", (double)calibrator);
+    }
+    if (cover_calibrator->get_covermoving(&b) == ALPACA_OK)
+    {
+      add_state_bool(state, "CoverMoving", b);
     }
     if (cover_calibrator->get_coverstate(&cover) == ALPACA_OK)
     {
-      add_state_bool(state, "CoverMoving", cover == CoverCalibrator::CoverState::Moving);
       add_state_number(state, "CoverState", (double)cover);
     }
     break;
@@ -2191,6 +2203,66 @@ esp_err_t Api::handle_get_covercalibrator_coverstate(httpd_req_t *req)
   }
 
   add_value_on_error(root, cJSON_Number);
+  return api->send_json_response(req, &parsed_request, root);
+}
+
+esp_err_t Api::handle_get_covercalibrator_calibratorchanging(httpd_req_t *req)
+{
+  Api *api = (Api *)req->user_ctx;
+  alpaca_request_t parsed_request;
+  esp_err_t err = api->parse_request(req, &parsed_request);
+  if (err != ESP_OK)
+  {
+    return api->send_error_response(req, &parsed_request, err == ESP_ERR_NOT_FOUND ? 404 : 400);
+  }
+  cJSON *root = cJSON_CreateObject();
+  Device *device = api->_devices[parsed_request.device_type][parsed_request.device_number];
+
+  if (parsed_request.device_type == DeviceType::CoverCalibrator)
+  {
+    CoverCalibrator *cover_calibrator = (CoverCalibrator *)device;
+    bool value = false;
+    if (check_return(cover_calibrator->get_calibratorchanging(&value), root))
+    {
+      cJSON_AddBoolToObject(root, "Value", value);
+    }
+  }
+  else
+  {
+    set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
+  }
+
+  add_value_on_error(root, cJSON_False);
+  return api->send_json_response(req, &parsed_request, root);
+}
+
+esp_err_t Api::handle_get_covercalibrator_covermoving(httpd_req_t *req)
+{
+  Api *api = (Api *)req->user_ctx;
+  alpaca_request_t parsed_request;
+  esp_err_t err = api->parse_request(req, &parsed_request);
+  if (err != ESP_OK)
+  {
+    return api->send_error_response(req, &parsed_request, err == ESP_ERR_NOT_FOUND ? 404 : 400);
+  }
+  cJSON *root = cJSON_CreateObject();
+  Device *device = api->_devices[parsed_request.device_type][parsed_request.device_number];
+
+  if (parsed_request.device_type == DeviceType::CoverCalibrator)
+  {
+    CoverCalibrator *cover_calibrator = (CoverCalibrator *)device;
+    bool value = false;
+    if (check_return(cover_calibrator->get_covermoving(&value), root))
+    {
+      cJSON_AddBoolToObject(root, "Value", value);
+    }
+  }
+  else
+  {
+    set_error(ALPACA_ERR_NOT_IMPLEMENTED, root);
+  }
+
+  add_value_on_error(root, cJSON_False);
   return api->send_json_response(req, &parsed_request, root);
 }
 
