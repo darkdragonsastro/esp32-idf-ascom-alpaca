@@ -1,3 +1,15 @@
+## 3.0.0 (2026-10-15)
+
+### BREAKING CHANGE
+
+- DeviceState comes from Device::get_devicestate(). A
+device whose interface version has DeviceState must override it, or
+devicestate returns NotImplemented.
+
+### Feat
+
+- **api**: let each device build its own DeviceState (#32)
+
 ## 2.1.0 (2026-10-15)
 
 ### Feat
