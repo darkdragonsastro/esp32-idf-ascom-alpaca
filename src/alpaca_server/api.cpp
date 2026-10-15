@@ -1690,35 +1690,9 @@ esp_err_t Api::handle_get_connecting(httpd_req_t *req)
   return api->send_json_response(req, &parsed_request, root);
 }
 
-// One {"Name": ..., "Value": ...} entry in a DeviceState array.
-static void add_state_bool(cJSON *state, const char *name, bool value)
-{
-  cJSON *item = cJSON_CreateObject();
-  cJSON_AddStringToObject(item, "Name", name);
-  cJSON_AddBoolToObject(item, "Value", value);
-  cJSON_AddItemToArray(state, item);
-}
-
-static void add_state_number(cJSON *state, const char *name, double value)
-{
-  cJSON *item = cJSON_CreateObject();
-  cJSON_AddStringToObject(item, "Name", name);
-  cJSON_AddNumberToObject(item, "Value", value);
-  cJSON_AddItemToArray(state, item);
-}
-
-static void add_state_string(cJSON *state, const char *name, const char *value)
-{
-  cJSON *item = cJSON_CreateObject();
-  cJSON_AddStringToObject(item, "Name", name);
-  cJSON_AddStringToObject(item, "Value", value);
-  cJSON_AddItemToArray(state, item);
-}
-
-// DeviceState returns the device's operational properties in one call. Only
-// properties whose getter succeeds are included, as the specification
-// allows; a NotImplemented or NotConnected property is simply left out.
-// TimeStamp is included when the clock has been set.
+// DeviceState returns the device's operational properties in one call. The
+// device builds the list in get_devicestate(); TimeStamp is added when the
+// clock has been set.
 esp_err_t Api::handle_get_devicestate(httpd_req_t *req)
 {
   Api *api = (Api *)req->user_ctx;
@@ -1731,216 +1705,15 @@ esp_err_t Api::handle_get_devicestate(httpd_req_t *req)
   cJSON *root = cJSON_CreateObject();
   Device *device = api->_devices[parsed_request.device_type][parsed_request.device_number];
 
-  cJSON *state = cJSON_AddArrayToObject(root, "Value");
-
-  switch (device->device_type())
+  cJSON *state = cJSON_CreateArray();
+  DeviceState device_state(state);
+  if (!check_return(device->get_devicestate(device_state), root))
   {
-  case DeviceType::CoverCalibrator:
-  {
-    CoverCalibrator *cover_calibrator = (CoverCalibrator *)device;
-    uint32_t brightness = 0;
-    bool b = false;
-    CoverCalibrator::CalibratorState calibrator = CoverCalibrator::CalibratorState::Unknown;
-    CoverCalibrator::CoverState cover = CoverCalibrator::CoverState::Unknown;
-    if (cover_calibrator->get_brightness(&brightness) == ALPACA_OK)
-    {
-      add_state_number(state, "Brightness", brightness);
-    }
-    if (cover_calibrator->get_calibratorchanging(&b) == ALPACA_OK)
-    {
-      add_state_bool(state, "CalibratorChanging", b);
-    }
-    if (cover_calibrator->get_calibratorstate(&calibrator) == ALPACA_OK)
-    {
-      add_state_number(state, "CalibratorState", (double)calibrator);
-    }
-    if (cover_calibrator->get_covermoving(&b) == ALPACA_OK)
-    {
-      add_state_bool(state, "CoverMoving", b);
-    }
-    if (cover_calibrator->get_coverstate(&cover) == ALPACA_OK)
-    {
-      add_state_number(state, "CoverState", (double)cover);
-    }
-    break;
+    cJSON_Delete(state);
+    add_value_on_error(root, cJSON_Array);
+    return api->send_json_response(req, &parsed_request, root);
   }
-  case DeviceType::Dome:
-  {
-    Dome *dome = (Dome *)device;
-    double d = 0;
-    bool b = false;
-    Dome::ShutterState shutter = Dome::ShutterState::Error;
-    if (dome->get_altitude(&d) == ALPACA_OK)
-    {
-      add_state_number(state, "Altitude", d);
-    }
-    if (dome->get_athome(&b) == ALPACA_OK)
-    {
-      add_state_bool(state, "AtHome", b);
-    }
-    if (dome->get_atpark(&b) == ALPACA_OK)
-    {
-      add_state_bool(state, "AtPark", b);
-    }
-    if (dome->get_azimuth(&d) == ALPACA_OK)
-    {
-      add_state_number(state, "Azimuth", d);
-    }
-    if (dome->get_shutterstatus(&shutter) == ALPACA_OK)
-    {
-      add_state_number(state, "ShutterStatus", (double)shutter);
-    }
-    if (dome->get_slewing(&b) == ALPACA_OK)
-    {
-      add_state_bool(state, "Slewing", b);
-    }
-    break;
-  }
-  case DeviceType::ObservingConditions:
-  {
-    ObservingConditions *conditions = (ObservingConditions *)device;
-
-    const struct
-    {
-      const char *name;
-      esp_err_t (ObservingConditions::*get)(double *);
-    } readings[] = {
-      {"CloudCover", &ObservingConditions::get_cloudcover},
-      {"DewPoint", &ObservingConditions::get_dewpoint},
-      {"Humidity", &ObservingConditions::get_humidity},
-      {"Pressure", &ObservingConditions::get_pressure},
-      {"RainRate", &ObservingConditions::get_rainrate},
-      {"SkyBrightness", &ObservingConditions::get_skybrightness},
-      {"SkyQuality", &ObservingConditions::get_skyquality},
-      {"SkyTemperature", &ObservingConditions::get_skytemperature},
-      {"StarFWHM", &ObservingConditions::get_starfwhm},
-      {"Temperature", &ObservingConditions::get_temperature},
-      {"WindDirection", &ObservingConditions::get_winddirection},
-      {"WindGust", &ObservingConditions::get_windgust},
-      {"WindSpeed", &ObservingConditions::get_windspeed},
-    };
-
-    for (const auto &reading : readings)
-    {
-      double d = 0;
-      if ((conditions->*reading.get)(&d) == ALPACA_OK)
-      {
-        add_state_number(state, reading.name, d);
-      }
-    }
-    break;
-  }
-  case DeviceType::SafetyMonitor:
-  {
-    bool b = false;
-    if (((SafetyMonitor *)device)->get_issafe(&b) == ALPACA_OK)
-    {
-      add_state_bool(state, "IsSafe", b);
-    }
-    break;
-  }
-  case DeviceType::Switch:
-  {
-    // ISwitchV3 names each entry after the property and the switch number:
-    // GetSwitch0, GetSwitch1, ..., then GetSwitchValue0, ..., then
-    // StateChangeComplete0, .... A switch whose read fails is left out.
-    Switch *switch_device = (Switch *)device;
-    int32_t maxswitch = 0;
-    if (switch_device->get_maxswitch(&maxswitch) != ALPACA_OK)
-    {
-      break;
-    }
-    char name[40];
-    for (int32_t i = 0; i < maxswitch; i++)
-    {
-      bool b = false;
-      if (switch_device->get_getswitch(i, &b) == ALPACA_OK)
-      {
-        snprintf(name, sizeof(name), "GetSwitch%ld", (long)i);
-        add_state_bool(state, name, b);
-      }
-    }
-    for (int32_t i = 0; i < maxswitch; i++)
-    {
-      double d = 0;
-      if (switch_device->get_getswitchvalue(i, &d) == ALPACA_OK)
-      {
-        snprintf(name, sizeof(name), "GetSwitchValue%ld", (long)i);
-        add_state_number(state, name, d);
-      }
-    }
-    for (int32_t i = 0; i < maxswitch; i++)
-    {
-      bool b = false;
-      if (switch_device->get_statechangecomplete(i, &b) == ALPACA_OK)
-      {
-        snprintf(name, sizeof(name), "StateChangeComplete%ld", (long)i);
-        add_state_bool(state, name, b);
-      }
-    }
-    break;
-  }
-  case DeviceType::Telescope:
-  {
-    Telescope *telescope = (Telescope *)device;
-    double d = 0;
-    bool b = false;
-    Telescope::SideOfPier side = Telescope::SideOfPier::Unknown;
-    std::string utcdate;
-    if (telescope->get_altitude(&d) == ALPACA_OK)
-    {
-      add_state_number(state, "Altitude", d);
-    }
-    if (telescope->get_athome(&b) == ALPACA_OK)
-    {
-      add_state_bool(state, "AtHome", b);
-    }
-    if (telescope->get_atpark(&b) == ALPACA_OK)
-    {
-      add_state_bool(state, "AtPark", b);
-    }
-    if (telescope->get_azimuth(&d) == ALPACA_OK)
-    {
-      add_state_number(state, "Azimuth", d);
-    }
-    if (telescope->get_declination(&d) == ALPACA_OK)
-    {
-      add_state_number(state, "Declination", d);
-    }
-    if (telescope->get_ispulseguiding(&b) == ALPACA_OK)
-    {
-      add_state_bool(state, "IsPulseGuiding", b);
-    }
-    if (telescope->get_rightascension(&d) == ALPACA_OK)
-    {
-      add_state_number(state, "RightAscension", d);
-    }
-    if (telescope->get_sideofpier(&side) == ALPACA_OK)
-    {
-      add_state_number(state, "SideOfPier", (double)side);
-    }
-    if (telescope->get_siderealtime(&d) == ALPACA_OK)
-    {
-      add_state_number(state, "SiderealTime", d);
-    }
-    if (telescope->get_slewing(&b) == ALPACA_OK)
-    {
-      add_state_bool(state, "Slewing", b);
-    }
-    if (telescope->get_tracking(&b) == ALPACA_OK)
-    {
-      add_state_bool(state, "Tracking", b);
-    }
-    if (telescope->get_utcdate(utcdate) == ALPACA_OK)
-    {
-      add_state_string(state, "UTCDate", utcdate.c_str());
-    }
-    break;
-  }
-  default:
-    break;
-  }
-  clear_error_detail();
+  cJSON_AddItemToObject(root, "Value", state);
 
   struct timeval now;
   gettimeofday(&now, NULL);
@@ -1961,10 +1734,7 @@ esp_err_t Api::handle_get_devicestate(httpd_req_t *req)
         utc.tm_sec,
         (long)(now.tv_usec / 1000)
     );
-    cJSON *item = cJSON_CreateObject();
-    cJSON_AddStringToObject(item, "Name", "TimeStamp");
-    cJSON_AddStringToObject(item, "Value", stamp);
-    cJSON_AddItemToArray(state, item);
+    device_state.add_string("TimeStamp", stamp);
   }
 
   return api->send_json_response(req, &parsed_request, root);

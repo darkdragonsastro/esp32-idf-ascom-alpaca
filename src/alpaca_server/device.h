@@ -38,6 +38,21 @@ size_t take_error_detail(char *buf, size_t len);
 // Internal — drops any pending per-call error detail.
 void clear_error_detail();
 
+// The DeviceState list a device builds in get_devicestate(): one entry per
+// operational property. The API adds TimeStamp.
+class DeviceState
+{
+public:
+  explicit DeviceState(cJSON *array);
+
+  void add_bool(const char *name, bool value);
+  void add_number(const char *name, double value);
+  void add_string(const char *name, const char *value);
+
+private:
+  cJSON *_array;
+};
+
 class Device
 {
 public:
@@ -64,11 +79,15 @@ public:
   // Platform 7 (interface v3 and later) members. The defaults model a device
   // that connects synchronously: Connect/Disconnect set Connected and
   // Connecting is always false. Devices with a slow connect sequence override
-  // all three. DeviceState is assembled by the API from the device's own
-  // operational getters, so nothing to override for it.
+  // all three.
   virtual esp_err_t connect();
   virtual esp_err_t disconnect();
   virtual esp_err_t get_connecting(bool *connecting);
+
+  // Platform 7. The device adds its operational properties to state. The
+  // default returns NotImplemented; a device whose interface version has
+  // DeviceState overrides it.
+  virtual esp_err_t get_devicestate(DeviceState &state);
 
 protected:
   // Explain the error you are about to return: call immediately before

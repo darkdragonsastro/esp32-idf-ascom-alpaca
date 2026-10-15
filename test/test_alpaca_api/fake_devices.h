@@ -5,8 +5,8 @@
 #pragma once
 
 #include <alpaca_server/api.h>
+#include <functional>
 #include <map>
-#include <set>
 #include <stdio.h>
 #include <string>
 #include <type_traits>
@@ -23,11 +23,20 @@ public:
   bool is_connected = true;
   uint32_t interface_version = 1;
   std::vector<std::string> supported_actions;
-  // The value a getter that uses read() writes, by method name, and the
-  // getters that fail with NotImplemented. A getter not listed in values
-  // leaves its output alone.
+  // The value a getter that uses read() writes, by method name. A getter
+  // not listed leaves its output alone.
   std::map<std::string, double> values;
-  std::set<std::string> failing;
+  // What get_devicestate() adds to the list before it returns.
+  std::function<void(DeviceState &)> build_state;
+
+  esp_err_t get_devicestate(DeviceState &state) override
+  {
+    if (build_state)
+    {
+      build_state(state);
+    }
+    return record("get_devicestate");
+  }
 
   esp_err_t action(const char *action, const char *parameters, char *buf, size_t len) override
   {
@@ -101,20 +110,12 @@ protected:
   esp_err_t record(const char *method)
   {
     last_call = method;
-    if (failing.count(method))
-    {
-      return ALPACA_ERR_NOT_IMPLEMENTED;
-    }
     return ret;
   }
 
   template <class T> esp_err_t read(const char *method, T *out)
   {
     last_call = method;
-    if (failing.count(method))
-    {
-      return ALPACA_ERR_NOT_IMPLEMENTED;
-    }
     auto value = values.find(method);
     if (value != values.end())
     {
@@ -604,9 +605,6 @@ class FakeSwitch : public FakeDevice<Switch>
 {
 public:
   int32_t max_switch = 2;
-  // A GetSwitch or GetSwitchValue read of this Id fails with NotConnected.
-  // -1 means every read works.
-  int32_t failing_id = -1;
   // When false, the ISwitchV3 members fall through to the Switch defaults,
   // as they do for a device that does not override them.
   bool override_async = true;
@@ -630,10 +628,6 @@ public:
   esp_err_t get_getswitch(int32_t id, bool *getswitch) override
   {
     last_id = id;
-    if (id == failing_id)
-    {
-      return ALPACA_ERR_NOT_CONNECTED;
-    }
     *getswitch = id == 0;
     return record("get_getswitch");
   }
@@ -650,10 +644,6 @@ public:
 
   esp_err_t get_getswitchvalue(int32_t id, double *value) override
   {
-    if (id == failing_id)
-    {
-      return ALPACA_ERR_NOT_CONNECTED;
-    }
     *value = id + 0.5;
     return record("get_getswitchvalue");
   }

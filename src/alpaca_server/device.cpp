@@ -155,6 +155,40 @@ esp_err_t Device::get_connecting(bool *connecting)
   return ALPACA_OK;
 }
 
+esp_err_t Device::get_devicestate(DeviceState &state)
+{
+  return ALPACA_ERR_NOT_IMPLEMENTED;
+}
+
+DeviceState::DeviceState(cJSON *array) : _array(array)
+{
+}
+
+// One {"Name": ..., "Value": ...} entry in the DeviceState array.
+void DeviceState::add_bool(const char *name, bool value)
+{
+  cJSON *item = cJSON_CreateObject();
+  cJSON_AddStringToObject(item, "Name", name);
+  cJSON_AddBoolToObject(item, "Value", value);
+  cJSON_AddItemToArray(_array, item);
+}
+
+void DeviceState::add_number(const char *name, double value)
+{
+  cJSON *item = cJSON_CreateObject();
+  cJSON_AddStringToObject(item, "Name", name);
+  cJSON_AddNumberToObject(item, "Value", value);
+  cJSON_AddItemToArray(_array, item);
+}
+
+void DeviceState::add_string(const char *name, const char *value)
+{
+  cJSON *item = cJSON_CreateObject();
+  cJSON_AddStringToObject(item, "Name", name);
+  cJSON_AddStringToObject(item, "Value", value);
+  cJSON_AddItemToArray(_array, item);
+}
+
 AlpacaServer::DeviceType Camera::device_type()
 {
   return AlpacaServer::DeviceType::Camera;
