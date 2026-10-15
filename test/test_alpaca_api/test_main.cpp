@@ -632,56 +632,97 @@ void test_telescope_devicestate_lists_each_operational_property()
 
 void test_telescope_devicestate_leaves_out_only_a_failed_read()
 {
-  FakeTelescope telescope;
-  telescope.failing = {"get_altitude", "get_azimuth"};
-  Server server({&telescope});
+  const char *names[] = {
+    "Altitude",
+    "AtHome",
+    "AtPark",
+    "Azimuth",
+    "Declination",
+    "IsPulseGuiding",
+    "RightAscension",
+    "SideOfPier",
+    "SiderealTime",
+    "Slewing",
+    "Tracking",
+    "UTCDate"
+  };
+  const char *getters[] = {
+    "get_altitude",
+    "get_athome",
+    "get_atpark",
+    "get_azimuth",
+    "get_declination",
+    "get_ispulseguiding",
+    "get_rightascension",
+    "get_sideofpier",
+    "get_siderealtime",
+    "get_slewing",
+    "get_tracking",
+    "get_utcdate"
+  };
+  // Fail one getter at a time. Only its own name may drop out, so each name is
+  // tied to its own getter even where two getters return the same value.
+  for (int failed = 0; failed < 12; failed++)
+  {
+    FakeTelescope telescope;
+    telescope.failing = {getters[failed]};
+    Server server({&telescope});
 
-  FakeResponse r = get("/api/v1/telescope/0/devicestate");
+    FakeResponse r = get("/api/v1/telescope/0/devicestate");
 
-  assert_ok(r);
-  TEST_ASSERT_NULL(state_entry(r, "Altitude"));
-  TEST_ASSERT_NULL(state_entry(r, "Azimuth"));
-  TEST_ASSERT_NOT_NULL(state_entry(r, "Declination"));
-  TEST_ASSERT_NOT_NULL(state_entry(r, "Tracking"));
+    assert_ok(r);
+    for (int i = 0; i < 12; i++)
+    {
+      if (i == failed)
+      {
+        TEST_ASSERT_NULL_MESSAGE(state_entry(r, names[i]), getters[failed]);
+      }
+      else
+      {
+        TEST_ASSERT_NOT_NULL_MESSAGE(state_entry(r, names[i]), getters[failed]);
+      }
+    }
+  }
 }
+
+const char *observing_names[] = {
+  "CloudCover",
+  "DewPoint",
+  "Humidity",
+  "Pressure",
+  "RainRate",
+  "SkyBrightness",
+  "SkyQuality",
+  "SkyTemperature",
+  "StarFWHM",
+  "Temperature",
+  "WindDirection",
+  "WindGust",
+  "WindSpeed"
+};
+const char *observing_getters[] = {
+  "get_cloudcover",
+  "get_dewpoint",
+  "get_humidity",
+  "get_pressure",
+  "get_rainrate",
+  "get_skybrightness",
+  "get_skyquality",
+  "get_skytemperature",
+  "get_starfwhm",
+  "get_temperature",
+  "get_winddirection",
+  "get_windgust",
+  "get_windspeed"
+};
 
 void test_observingconditions_devicestate_lists_each_reading()
 {
   FakeObservingConditions conditions;
-  const char *names[] = {
-    "CloudCover",
-    "DewPoint",
-    "Humidity",
-    "Pressure",
-    "RainRate",
-    "SkyBrightness",
-    "SkyQuality",
-    "SkyTemperature",
-    "StarFWHM",
-    "Temperature",
-    "WindDirection",
-    "WindGust",
-    "WindSpeed"
-  };
-  const char *getters[] = {
-    "get_cloudcover",
-    "get_dewpoint",
-    "get_humidity",
-    "get_pressure",
-    "get_rainrate",
-    "get_skybrightness",
-    "get_skyquality",
-    "get_skytemperature",
-    "get_starfwhm",
-    "get_temperature",
-    "get_winddirection",
-    "get_windgust",
-    "get_windspeed"
-  };
   // Reading i is i + 1, so a name read from the wrong getter shows.
   for (int i = 0; i < 13; i++)
   {
-    conditions.values[getters[i]] = i + 1;
+    conditions.values[observing_getters[i]] = i + 1;
   }
   Server server({&conditions});
 
@@ -690,22 +731,38 @@ void test_observingconditions_devicestate_lists_each_reading()
   assert_ok(r);
   for (int i = 0; i < 13; i++)
   {
-    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(i + 1, cJSON_GetNumberValue(state_entry(r, names[i])), names[i]);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(
+        i + 1,
+        cJSON_GetNumberValue(state_entry(r, observing_names[i])),
+        observing_names[i]
+    );
   }
 }
 
 void test_observingconditions_devicestate_leaves_out_only_a_failed_read()
 {
-  FakeObservingConditions conditions;
-  conditions.failing = {"get_skyquality"};
-  Server server({&conditions});
+  // Fail one getter at a time. Only its own name may drop out.
+  for (int failed = 0; failed < 13; failed++)
+  {
+    FakeObservingConditions conditions;
+    conditions.failing = {observing_getters[failed]};
+    Server server({&conditions});
 
-  FakeResponse r = get("/api/v1/observingconditions/0/devicestate");
+    FakeResponse r = get("/api/v1/observingconditions/0/devicestate");
 
-  assert_ok(r);
-  TEST_ASSERT_NULL(state_entry(r, "SkyQuality"));
-  TEST_ASSERT_NOT_NULL(state_entry(r, "CloudCover"));
-  TEST_ASSERT_NOT_NULL(state_entry(r, "WindSpeed"));
+    assert_ok(r);
+    for (int i = 0; i < 13; i++)
+    {
+      if (i == failed)
+      {
+        TEST_ASSERT_NULL_MESSAGE(state_entry(r, observing_names[i]), observing_getters[failed]);
+      }
+      else
+      {
+        TEST_ASSERT_NOT_NULL_MESSAGE(state_entry(r, observing_names[i]), observing_getters[failed]);
+      }
+    }
+  }
 }
 
 void test_covercalibrator_devicestate_reports_moving_and_changing_from_the_states()

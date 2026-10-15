@@ -101,6 +101,10 @@ protected:
   esp_err_t record(const char *method)
   {
     last_call = method;
+    if (failing.count(method))
+    {
+      return ALPACA_ERR_NOT_IMPLEMENTED;
+    }
     return ret;
   }
 
