@@ -1,3 +1,13 @@
+## 2.1.0 (2026-10-15)
+
+### Feat
+
+- **api**: add CoverMoving and CalibratorChanging getters and routes (#31)
+
+### Fix
+
+- **api**: fill DeviceState for Telescope, ObservingConditions and CoverCalibrator (#30)
+
 ## 2.0.0 (2026-10-13)
 
 ### BREAKING CHANGE
