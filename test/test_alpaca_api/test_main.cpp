@@ -597,46 +597,57 @@ void test_telescope_devicestate_lists_each_operational_property()
 {
   FakeTelescope telescope;
   telescope.utcdate = "2026-10-15T12:00:00.000Z";
+  // A different value from each getter, so a name read from the wrong getter shows.
+  telescope.values = {
+    {"get_altitude", 10},
+    {"get_azimuth", 20},
+    {"get_declination", 30},
+    {"get_rightascension", 4},
+    {"get_siderealtime", 5},
+    {"get_sideofpier", Telescope::SideOfPier::West},
+    {"get_athome", 1},
+    {"get_atpark", 0},
+    {"get_ispulseguiding", 1},
+    {"get_slewing", 0},
+    {"get_tracking", 1},
+  };
   Server server({&telescope});
 
   FakeResponse r = get("/api/v1/telescope/0/devicestate");
 
   assert_ok(r);
-  const char *numbers[] = {"Altitude", "Azimuth", "Declination", "RightAscension", "SideOfPier", "SiderealTime"};
-  for (const char *name : numbers)
-  {
-    TEST_ASSERT_TRUE_MESSAGE(cJSON_IsNumber(state_entry(r, name)), name);
-  }
-  const char *bools[] = {"AtHome", "AtPark", "IsPulseGuiding", "Slewing", "Tracking"};
-  for (const char *name : bools)
-  {
-    TEST_ASSERT_TRUE_MESSAGE(cJSON_IsBool(state_entry(r, name)), name);
-  }
+  TEST_ASSERT_EQUAL_FLOAT(10, cJSON_GetNumberValue(state_entry(r, "Altitude")));
+  TEST_ASSERT_EQUAL_FLOAT(20, cJSON_GetNumberValue(state_entry(r, "Azimuth")));
+  TEST_ASSERT_EQUAL_FLOAT(30, cJSON_GetNumberValue(state_entry(r, "Declination")));
+  TEST_ASSERT_EQUAL_FLOAT(4, cJSON_GetNumberValue(state_entry(r, "RightAscension")));
+  TEST_ASSERT_EQUAL_FLOAT(5, cJSON_GetNumberValue(state_entry(r, "SiderealTime")));
+  TEST_ASSERT_EQUAL_FLOAT(Telescope::SideOfPier::West, cJSON_GetNumberValue(state_entry(r, "SideOfPier")));
+  TEST_ASSERT_TRUE(cJSON_IsTrue(state_entry(r, "AtHome")));
+  TEST_ASSERT_TRUE(cJSON_IsFalse(state_entry(r, "AtPark")));
+  TEST_ASSERT_TRUE(cJSON_IsTrue(state_entry(r, "IsPulseGuiding")));
+  TEST_ASSERT_TRUE(cJSON_IsFalse(state_entry(r, "Slewing")));
+  TEST_ASSERT_TRUE(cJSON_IsTrue(state_entry(r, "Tracking")));
   TEST_ASSERT_EQUAL_STRING("2026-10-15T12:00:00.000Z", cJSON_GetStringValue(state_entry(r, "UTCDate")));
 }
 
-void test_telescope_devicestate_leaves_out_a_failed_read()
+void test_telescope_devicestate_leaves_out_only_a_failed_read()
 {
   FakeTelescope telescope;
-  telescope.ret = ALPACA_ERR_NOT_IMPLEMENTED;
+  telescope.failing = {"get_altitude", "get_azimuth"};
   Server server({&telescope});
 
   FakeResponse r = get("/api/v1/telescope/0/devicestate");
 
   assert_ok(r);
   TEST_ASSERT_NULL(state_entry(r, "Altitude"));
-  TEST_ASSERT_NULL(state_entry(r, "Tracking"));
-  TEST_ASSERT_NULL(state_entry(r, "UTCDate"));
+  TEST_ASSERT_NULL(state_entry(r, "Azimuth"));
+  TEST_ASSERT_NOT_NULL(state_entry(r, "Declination"));
+  TEST_ASSERT_NOT_NULL(state_entry(r, "Tracking"));
 }
 
 void test_observingconditions_devicestate_lists_each_reading()
 {
   FakeObservingConditions conditions;
-  Server server({&conditions});
-
-  FakeResponse r = get("/api/v1/observingconditions/0/devicestate");
-
-  assert_ok(r);
   const char *names[] = {
     "CloudCover",
     "DewPoint",
@@ -652,23 +663,49 @@ void test_observingconditions_devicestate_lists_each_reading()
     "WindGust",
     "WindSpeed"
   };
-  for (const char *name : names)
+  const char *getters[] = {
+    "get_cloudcover",
+    "get_dewpoint",
+    "get_humidity",
+    "get_pressure",
+    "get_rainrate",
+    "get_skybrightness",
+    "get_skyquality",
+    "get_skytemperature",
+    "get_starfwhm",
+    "get_temperature",
+    "get_winddirection",
+    "get_windgust",
+    "get_windspeed"
+  };
+  // Reading i is i + 1, so a name read from the wrong getter shows.
+  for (int i = 0; i < 13; i++)
   {
-    TEST_ASSERT_TRUE_MESSAGE(cJSON_IsNumber(state_entry(r, name)), name);
+    conditions.values[getters[i]] = i + 1;
   }
-}
-
-void test_observingconditions_devicestate_leaves_out_a_failed_read()
-{
-  FakeObservingConditions conditions;
-  conditions.ret = ALPACA_ERR_NOT_IMPLEMENTED;
   Server server({&conditions});
 
   FakeResponse r = get("/api/v1/observingconditions/0/devicestate");
 
   assert_ok(r);
-  TEST_ASSERT_NULL(state_entry(r, "CloudCover"));
-  TEST_ASSERT_NULL(state_entry(r, "WindSpeed"));
+  for (int i = 0; i < 13; i++)
+  {
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(i + 1, cJSON_GetNumberValue(state_entry(r, names[i])), names[i]);
+  }
+}
+
+void test_observingconditions_devicestate_leaves_out_only_a_failed_read()
+{
+  FakeObservingConditions conditions;
+  conditions.failing = {"get_skyquality"};
+  Server server({&conditions});
+
+  FakeResponse r = get("/api/v1/observingconditions/0/devicestate");
+
+  assert_ok(r);
+  TEST_ASSERT_NULL(state_entry(r, "SkyQuality"));
+  TEST_ASSERT_NOT_NULL(state_entry(r, "CloudCover"));
+  TEST_ASSERT_NOT_NULL(state_entry(r, "WindSpeed"));
 }
 
 void test_covercalibrator_devicestate_reports_moving_and_changing_from_the_states()
@@ -873,9 +910,9 @@ int main(int argc, char **argv)
   RUN_TEST(test_switch_devicestate_lists_statechangecomplete_when_the_device_has_it);
   RUN_TEST(test_switch_devicestate_has_no_switches_when_maxswitch_fails);
   RUN_TEST(test_telescope_devicestate_lists_each_operational_property);
-  RUN_TEST(test_telescope_devicestate_leaves_out_a_failed_read);
+  RUN_TEST(test_telescope_devicestate_leaves_out_only_a_failed_read);
   RUN_TEST(test_observingconditions_devicestate_lists_each_reading);
-  RUN_TEST(test_observingconditions_devicestate_leaves_out_a_failed_read);
+  RUN_TEST(test_observingconditions_devicestate_leaves_out_only_a_failed_read);
   RUN_TEST(test_covercalibrator_devicestate_reports_moving_and_changing_from_the_states);
   RUN_TEST(test_covercalibrator_devicestate_is_not_moving_or_changing_when_settled);
   RUN_TEST(test_bad_urls_get_a_4xx_status);
