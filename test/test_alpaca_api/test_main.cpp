@@ -593,6 +593,214 @@ void test_switch_devicestate_has_no_switches_when_maxswitch_fails()
   TEST_ASSERT_NULL(state_entry(r, "GetSwitchValue0"));
 }
 
+void test_telescope_devicestate_lists_each_operational_property()
+{
+  FakeTelescope telescope;
+  telescope.utcdate = "2026-10-15T12:00:00.000Z";
+  // A different value from each getter, so a name read from the wrong getter shows.
+  telescope.values = {
+    {"get_altitude", 10},
+    {"get_azimuth", 20},
+    {"get_declination", 30},
+    {"get_rightascension", 4},
+    {"get_siderealtime", 5},
+    {"get_sideofpier", Telescope::SideOfPier::West},
+    {"get_athome", 1},
+    {"get_atpark", 0},
+    {"get_ispulseguiding", 1},
+    {"get_slewing", 0},
+    {"get_tracking", 1},
+  };
+  Server server({&telescope});
+
+  FakeResponse r = get("/api/v1/telescope/0/devicestate");
+
+  assert_ok(r);
+  TEST_ASSERT_EQUAL_FLOAT(10, cJSON_GetNumberValue(state_entry(r, "Altitude")));
+  TEST_ASSERT_EQUAL_FLOAT(20, cJSON_GetNumberValue(state_entry(r, "Azimuth")));
+  TEST_ASSERT_EQUAL_FLOAT(30, cJSON_GetNumberValue(state_entry(r, "Declination")));
+  TEST_ASSERT_EQUAL_FLOAT(4, cJSON_GetNumberValue(state_entry(r, "RightAscension")));
+  TEST_ASSERT_EQUAL_FLOAT(5, cJSON_GetNumberValue(state_entry(r, "SiderealTime")));
+  TEST_ASSERT_EQUAL_FLOAT(Telescope::SideOfPier::West, cJSON_GetNumberValue(state_entry(r, "SideOfPier")));
+  TEST_ASSERT_TRUE(cJSON_IsTrue(state_entry(r, "AtHome")));
+  TEST_ASSERT_TRUE(cJSON_IsFalse(state_entry(r, "AtPark")));
+  TEST_ASSERT_TRUE(cJSON_IsTrue(state_entry(r, "IsPulseGuiding")));
+  TEST_ASSERT_TRUE(cJSON_IsFalse(state_entry(r, "Slewing")));
+  TEST_ASSERT_TRUE(cJSON_IsTrue(state_entry(r, "Tracking")));
+  TEST_ASSERT_EQUAL_STRING("2026-10-15T12:00:00.000Z", cJSON_GetStringValue(state_entry(r, "UTCDate")));
+}
+
+void test_telescope_devicestate_leaves_out_only_a_failed_read()
+{
+  const char *names[] = {
+    "Altitude",
+    "AtHome",
+    "AtPark",
+    "Azimuth",
+    "Declination",
+    "IsPulseGuiding",
+    "RightAscension",
+    "SideOfPier",
+    "SiderealTime",
+    "Slewing",
+    "Tracking",
+    "UTCDate"
+  };
+  const char *getters[] = {
+    "get_altitude",
+    "get_athome",
+    "get_atpark",
+    "get_azimuth",
+    "get_declination",
+    "get_ispulseguiding",
+    "get_rightascension",
+    "get_sideofpier",
+    "get_siderealtime",
+    "get_slewing",
+    "get_tracking",
+    "get_utcdate"
+  };
+  // Fail one getter at a time. Only its own name may drop out, so each name is
+  // tied to its own getter even where two getters return the same value.
+  for (int failed = 0; failed < 12; failed++)
+  {
+    FakeTelescope telescope;
+    telescope.failing = {getters[failed]};
+    Server server({&telescope});
+
+    FakeResponse r = get("/api/v1/telescope/0/devicestate");
+
+    assert_ok(r);
+    for (int i = 0; i < 12; i++)
+    {
+      std::string message = std::string(getters[failed]) + " failed, checking " + names[i];
+      if (i == failed)
+      {
+        TEST_ASSERT_NULL_MESSAGE(state_entry(r, names[i]), message.c_str());
+      }
+      else
+      {
+        TEST_ASSERT_NOT_NULL_MESSAGE(state_entry(r, names[i]), message.c_str());
+      }
+    }
+  }
+}
+
+const char *observing_names[] = {
+  "CloudCover",
+  "DewPoint",
+  "Humidity",
+  "Pressure",
+  "RainRate",
+  "SkyBrightness",
+  "SkyQuality",
+  "SkyTemperature",
+  "StarFWHM",
+  "Temperature",
+  "WindDirection",
+  "WindGust",
+  "WindSpeed"
+};
+const char *observing_getters[] = {
+  "get_cloudcover",
+  "get_dewpoint",
+  "get_humidity",
+  "get_pressure",
+  "get_rainrate",
+  "get_skybrightness",
+  "get_skyquality",
+  "get_skytemperature",
+  "get_starfwhm",
+  "get_temperature",
+  "get_winddirection",
+  "get_windgust",
+  "get_windspeed"
+};
+
+void test_observingconditions_devicestate_lists_each_reading()
+{
+  FakeObservingConditions conditions;
+  // Reading i is i + 1, so a name read from the wrong getter shows.
+  for (int i = 0; i < 13; i++)
+  {
+    conditions.values[observing_getters[i]] = i + 1;
+  }
+  Server server({&conditions});
+
+  FakeResponse r = get("/api/v1/observingconditions/0/devicestate");
+
+  assert_ok(r);
+  for (int i = 0; i < 13; i++)
+  {
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(
+        i + 1,
+        cJSON_GetNumberValue(state_entry(r, observing_names[i])),
+        observing_names[i]
+    );
+  }
+}
+
+void test_observingconditions_devicestate_leaves_out_only_a_failed_read()
+{
+  // Fail one getter at a time. Only its own name may drop out.
+  for (int failed = 0; failed < 13; failed++)
+  {
+    FakeObservingConditions conditions;
+    conditions.failing = {observing_getters[failed]};
+    Server server({&conditions});
+
+    FakeResponse r = get("/api/v1/observingconditions/0/devicestate");
+
+    assert_ok(r);
+    for (int i = 0; i < 13; i++)
+    {
+      std::string message = std::string(observing_getters[failed]) + " failed, checking " + observing_names[i];
+      if (i == failed)
+      {
+        TEST_ASSERT_NULL_MESSAGE(state_entry(r, observing_names[i]), message.c_str());
+      }
+      else
+      {
+        TEST_ASSERT_NOT_NULL_MESSAGE(state_entry(r, observing_names[i]), message.c_str());
+      }
+    }
+  }
+}
+
+void test_covercalibrator_devicestate_reports_moving_and_changing_from_the_states()
+{
+  FakeCoverCalibrator cover;
+  cover.cover_state = CoverCalibrator::CoverState::Moving;
+  cover.calibrator_state = CoverCalibrator::CalibratorState::NotReady;
+  Server server({&cover});
+
+  FakeResponse r = get("/api/v1/covercalibrator/0/devicestate");
+
+  assert_ok(r);
+  TEST_ASSERT_TRUE(cJSON_IsNumber(state_entry(r, "Brightness")));
+  TEST_ASSERT_EQUAL((int)CoverCalibrator::CoverState::Moving, (int)cJSON_GetNumberValue(state_entry(r, "CoverState")));
+  TEST_ASSERT_TRUE(cJSON_IsTrue(state_entry(r, "CoverMoving")));
+  TEST_ASSERT_EQUAL(
+      (int)CoverCalibrator::CalibratorState::NotReady,
+      (int)cJSON_GetNumberValue(state_entry(r, "CalibratorState"))
+  );
+  TEST_ASSERT_TRUE(cJSON_IsTrue(state_entry(r, "CalibratorChanging")));
+}
+
+void test_covercalibrator_devicestate_is_not_moving_or_changing_when_settled()
+{
+  FakeCoverCalibrator cover;
+  cover.cover_state = CoverCalibrator::CoverState::Open;
+  cover.calibrator_state = CoverCalibrator::CalibratorState::Ready;
+  Server server({&cover});
+
+  FakeResponse r = get("/api/v1/covercalibrator/0/devicestate");
+
+  assert_ok(r);
+  TEST_ASSERT_TRUE(cJSON_IsFalse(state_entry(r, "CoverMoving")));
+  TEST_ASSERT_TRUE(cJSON_IsFalse(state_entry(r, "CalibratorChanging")));
+}
+
 // Bad URLs
 
 void test_bad_urls_get_a_4xx_status()
@@ -760,6 +968,12 @@ int main(int argc, char **argv)
   RUN_TEST(test_switch_devicestate_lists_each_switch_and_skips_a_failed_read);
   RUN_TEST(test_switch_devicestate_lists_statechangecomplete_when_the_device_has_it);
   RUN_TEST(test_switch_devicestate_has_no_switches_when_maxswitch_fails);
+  RUN_TEST(test_telescope_devicestate_lists_each_operational_property);
+  RUN_TEST(test_telescope_devicestate_leaves_out_only_a_failed_read);
+  RUN_TEST(test_observingconditions_devicestate_lists_each_reading);
+  RUN_TEST(test_observingconditions_devicestate_leaves_out_only_a_failed_read);
+  RUN_TEST(test_covercalibrator_devicestate_reports_moving_and_changing_from_the_states);
+  RUN_TEST(test_covercalibrator_devicestate_is_not_moving_or_changing_when_settled);
   RUN_TEST(test_bad_urls_get_a_4xx_status);
   RUN_TEST(test_device_error_is_reported_in_the_body);
   RUN_TEST(test_a_get_error_has_a_default_value_of_the_right_type);

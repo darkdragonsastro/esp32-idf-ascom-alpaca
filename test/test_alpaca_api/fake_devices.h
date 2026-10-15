@@ -5,8 +5,11 @@
 #pragma once
 
 #include <alpaca_server/api.h>
+#include <map>
+#include <set>
 #include <stdio.h>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 using namespace AlpacaServer;
@@ -20,6 +23,11 @@ public:
   bool is_connected = true;
   uint32_t interface_version = 1;
   std::vector<std::string> supported_actions;
+  // The value a getter that uses read() writes, by method name, and the
+  // getters that fail with NotImplemented. A getter not listed in values
+  // leaves its output alone.
+  std::map<std::string, double> values;
+  std::set<std::string> failing;
 
   esp_err_t action(const char *action, const char *parameters, char *buf, size_t len) override
   {
@@ -93,6 +101,32 @@ protected:
   esp_err_t record(const char *method)
   {
     last_call = method;
+    if (failing.count(method))
+    {
+      return ALPACA_ERR_NOT_IMPLEMENTED;
+    }
+    return ret;
+  }
+
+  template <class T> esp_err_t read(const char *method, T *out)
+  {
+    last_call = method;
+    if (failing.count(method))
+    {
+      return ALPACA_ERR_NOT_IMPLEMENTED;
+    }
+    auto value = values.find(method);
+    if (value != values.end())
+    {
+      if constexpr (std::is_floating_point<T>::value)
+      {
+        *out = value->second;
+      }
+      else
+      {
+        *out = (T)(int)value->second;
+      }
+    }
     return ret;
   }
 };
@@ -105,6 +139,9 @@ public:
 class FakeCoverCalibrator : public FakeDevice<CoverCalibrator>
 {
 public:
+  CalibratorState calibrator_state = CalibratorState::Off;
+  CoverState cover_state = CoverState::Closed;
+
   esp_err_t get_brightness(uint32_t *brightness) override
   {
     return record("get_brightness");
@@ -112,11 +149,13 @@ public:
 
   esp_err_t get_calibratorstate(CalibratorState *state) override
   {
+    *state = calibrator_state;
     return record("get_calibratorstate");
   }
 
   esp_err_t get_coverstate(CoverState *state) override
   {
+    *state = cover_state;
     return record("get_coverstate");
   }
 
@@ -383,67 +422,67 @@ public:
 
   esp_err_t get_cloudcover(double *cloudcover) override
   {
-    return record("get_cloudcover");
+    return read("get_cloudcover", cloudcover);
   }
 
   esp_err_t get_dewpoint(double *dewpoint) override
   {
-    return record("get_dewpoint");
+    return read("get_dewpoint", dewpoint);
   }
 
   esp_err_t get_humidity(double *humidity) override
   {
-    return record("get_humidity");
+    return read("get_humidity", humidity);
   }
 
   esp_err_t get_pressure(double *pressure) override
   {
-    return record("get_pressure");
+    return read("get_pressure", pressure);
   }
 
   esp_err_t get_rainrate(double *rainrate) override
   {
-    return record("get_rainrate");
+    return read("get_rainrate", rainrate);
   }
 
   esp_err_t get_skybrightness(double *skybrightness) override
   {
-    return record("get_skybrightness");
+    return read("get_skybrightness", skybrightness);
   }
 
   esp_err_t get_skyquality(double *skyquality) override
   {
-    return record("get_skyquality");
+    return read("get_skyquality", skyquality);
   }
 
   esp_err_t get_skytemperature(double *skytemperature) override
   {
-    return record("get_skytemperature");
+    return read("get_skytemperature", skytemperature);
   }
 
   esp_err_t get_starfwhm(double *starfwhm) override
   {
-    return record("get_starfwhm");
+    return read("get_starfwhm", starfwhm);
   }
 
   esp_err_t get_temperature(double *temperature) override
   {
-    return record("get_temperature");
+    return read("get_temperature", temperature);
   }
 
   esp_err_t get_winddirection(double *winddirection) override
   {
-    return record("get_winddirection");
+    return read("get_winddirection", winddirection);
   }
 
   esp_err_t get_windgust(double *windgust) override
   {
-    return record("get_windgust");
+    return read("get_windgust", windgust);
   }
 
   esp_err_t get_windspeed(double *windspeed) override
   {
-    return record("get_windspeed");
+    return read("get_windspeed", windspeed);
   }
 
   esp_err_t put_refresh() override
@@ -692,7 +731,7 @@ public:
 
   esp_err_t get_altitude(double *altitude) override
   {
-    return record("get_altitude");
+    return read("get_altitude", altitude);
   }
 
   esp_err_t get_aperturearea(double *aperture) override
@@ -707,17 +746,17 @@ public:
 
   esp_err_t get_athome(bool *athome) override
   {
-    return record("get_athome");
+    return read("get_athome", athome);
   }
 
   esp_err_t get_atpark(bool *atpark) override
   {
-    return record("get_atpark");
+    return read("get_atpark", atpark);
   }
 
   esp_err_t get_azimuth(double *azimuth) override
   {
-    return record("get_azimuth");
+    return read("get_azimuth", azimuth);
   }
 
   esp_err_t get_canfindhome(bool *canfindhome) override
@@ -802,7 +841,7 @@ public:
 
   esp_err_t get_declination(double *declination) override
   {
-    return record("get_declination");
+    return read("get_declination", declination);
   }
 
   esp_err_t get_declinationrate(double *declinationrate) override
@@ -857,12 +896,12 @@ public:
 
   esp_err_t get_ispulseguiding(bool *ispulseguiding) override
   {
-    return record("get_ispulseguiding");
+    return read("get_ispulseguiding", ispulseguiding);
   }
 
   esp_err_t get_rightascension(double *rightascension) override
   {
-    return record("get_rightascension");
+    return read("get_rightascension", rightascension);
   }
 
   esp_err_t get_rightascensionrate(double *rightascensionrate) override
@@ -877,7 +916,7 @@ public:
 
   esp_err_t get_sideofpier(SideOfPier *sideofpier) override
   {
-    return record("get_sideofpier");
+    return read("get_sideofpier", sideofpier);
   }
 
   esp_err_t put_sideofpier(SideOfPier sideofpier) override
@@ -887,7 +926,7 @@ public:
 
   esp_err_t get_siderealtime(double *siderealtime) override
   {
-    return record("get_siderealtime");
+    return read("get_siderealtime", siderealtime);
   }
 
   esp_err_t get_siteelevation(double *siteelevation) override
@@ -922,7 +961,7 @@ public:
 
   esp_err_t get_slewing(bool *slewing) override
   {
-    return record("get_slewing");
+    return read("get_slewing", slewing);
   }
 
   esp_err_t get_slewsettletime(int32_t *slewsettletime) override
@@ -957,7 +996,7 @@ public:
 
   esp_err_t get_tracking(bool *tracking) override
   {
-    return record("get_tracking");
+    return read("get_tracking", tracking);
   }
 
   esp_err_t put_tracking(bool tracking) override
@@ -982,6 +1021,7 @@ public:
 
   esp_err_t get_utcdate(std::string &utcdate) override
   {
+    utcdate = this->utcdate;
     return record("get_utcdate");
   }
 
