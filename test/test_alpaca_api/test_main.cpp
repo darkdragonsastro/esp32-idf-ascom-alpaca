@@ -767,7 +767,42 @@ void test_observingconditions_devicestate_leaves_out_only_a_failed_read()
   }
 }
 
-void test_covercalibrator_devicestate_reports_moving_and_changing_from_the_states()
+void test_covercalibrator_devicestate_reports_moving_and_changing_from_their_getters()
+{
+  FakeCoverCalibratorV2 cover;
+  // The states say settled, so these values can only come from the getters.
+  cover.cover_state = CoverCalibrator::CoverState::Open;
+  cover.calibrator_state = CoverCalibrator::CalibratorState::Ready;
+  cover.values = {{"get_covermoving", 1}, {"get_calibratorchanging", 0}};
+  Server server({&cover});
+
+  FakeResponse r = get("/api/v1/covercalibrator/0/devicestate");
+
+  assert_ok(r);
+  TEST_ASSERT_TRUE(cJSON_IsNumber(state_entry(r, "Brightness")));
+  TEST_ASSERT_EQUAL((int)CoverCalibrator::CoverState::Open, (int)cJSON_GetNumberValue(state_entry(r, "CoverState")));
+  TEST_ASSERT_EQUAL(
+      (int)CoverCalibrator::CalibratorState::Ready,
+      (int)cJSON_GetNumberValue(state_entry(r, "CalibratorState"))
+  );
+  TEST_ASSERT_TRUE(cJSON_IsTrue(state_entry(r, "CoverMoving")));
+  TEST_ASSERT_TRUE(cJSON_IsFalse(state_entry(r, "CalibratorChanging")));
+}
+
+void test_covercalibrator_devicestate_reports_changing_from_its_own_getter()
+{
+  FakeCoverCalibratorV2 cover;
+  cover.values = {{"get_covermoving", 0}, {"get_calibratorchanging", 1}};
+  Server server({&cover});
+
+  FakeResponse r = get("/api/v1/covercalibrator/0/devicestate");
+
+  assert_ok(r);
+  TEST_ASSERT_TRUE(cJSON_IsFalse(state_entry(r, "CoverMoving")));
+  TEST_ASSERT_TRUE(cJSON_IsTrue(state_entry(r, "CalibratorChanging")));
+}
+
+void test_covercalibrator_devicestate_leaves_out_moving_and_changing_by_default()
 {
   FakeCoverCalibrator cover;
   cover.cover_state = CoverCalibrator::CoverState::Moving;
@@ -777,28 +812,39 @@ void test_covercalibrator_devicestate_reports_moving_and_changing_from_the_state
   FakeResponse r = get("/api/v1/covercalibrator/0/devicestate");
 
   assert_ok(r);
-  TEST_ASSERT_TRUE(cJSON_IsNumber(state_entry(r, "Brightness")));
-  TEST_ASSERT_EQUAL((int)CoverCalibrator::CoverState::Moving, (int)cJSON_GetNumberValue(state_entry(r, "CoverState")));
-  TEST_ASSERT_TRUE(cJSON_IsTrue(state_entry(r, "CoverMoving")));
-  TEST_ASSERT_EQUAL(
-      (int)CoverCalibrator::CalibratorState::NotReady,
-      (int)cJSON_GetNumberValue(state_entry(r, "CalibratorState"))
-  );
-  TEST_ASSERT_TRUE(cJSON_IsTrue(state_entry(r, "CalibratorChanging")));
+  TEST_ASSERT_NULL(state_entry(r, "CoverMoving"));
+  TEST_ASSERT_NULL(state_entry(r, "CalibratorChanging"));
+  TEST_ASSERT_NOT_NULL(state_entry(r, "CoverState"));
+  TEST_ASSERT_NOT_NULL(state_entry(r, "CalibratorState"));
 }
 
-void test_covercalibrator_devicestate_is_not_moving_or_changing_when_settled()
+void test_covercalibrator_moving_and_changing_routes_reach_the_device()
 {
-  FakeCoverCalibrator cover;
-  cover.cover_state = CoverCalibrator::CoverState::Open;
-  cover.calibrator_state = CoverCalibrator::CalibratorState::Ready;
+  FakeCoverCalibratorV2 cover;
+  cover.values = {{"get_covermoving", 1}, {"get_calibratorchanging", 0}};
   Server server({&cover});
 
-  FakeResponse r = get("/api/v1/covercalibrator/0/devicestate");
+  FakeResponse moving = get("/api/v1/covercalibrator/0/covermoving");
+  FakeResponse changing = get("/api/v1/covercalibrator/0/calibratorchanging");
 
-  assert_ok(r);
-  TEST_ASSERT_TRUE(cJSON_IsFalse(state_entry(r, "CoverMoving")));
-  TEST_ASSERT_TRUE(cJSON_IsFalse(state_entry(r, "CalibratorChanging")));
+  assert_ok(moving);
+  TEST_ASSERT_TRUE(cJSON_IsTrue(field(moving, "Value")));
+  assert_ok(changing);
+  TEST_ASSERT_TRUE(cJSON_IsFalse(field(changing, "Value")));
+}
+
+void test_covercalibrator_moving_and_changing_are_not_implemented_by_default()
+{
+  FakeCoverCalibrator cover;
+  Server server({&cover});
+
+  for (const char *path : {"/api/v1/covercalibrator/0/covermoving", "/api/v1/covercalibrator/0/calibratorchanging"})
+  {
+    FakeResponse r = get(path);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(200, r.status, path);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(ALPACA_ERR_NOT_IMPLEMENTED, (int)number(r, "ErrorNumber"), path);
+    TEST_ASSERT_TRUE_MESSAGE(cJSON_IsFalse(field(r, "Value")), path);
+  }
 }
 
 // Bad URLs
@@ -972,8 +1018,11 @@ int main(int argc, char **argv)
   RUN_TEST(test_telescope_devicestate_leaves_out_only_a_failed_read);
   RUN_TEST(test_observingconditions_devicestate_lists_each_reading);
   RUN_TEST(test_observingconditions_devicestate_leaves_out_only_a_failed_read);
-  RUN_TEST(test_covercalibrator_devicestate_reports_moving_and_changing_from_the_states);
-  RUN_TEST(test_covercalibrator_devicestate_is_not_moving_or_changing_when_settled);
+  RUN_TEST(test_covercalibrator_devicestate_reports_moving_and_changing_from_their_getters);
+  RUN_TEST(test_covercalibrator_devicestate_reports_changing_from_its_own_getter);
+  RUN_TEST(test_covercalibrator_devicestate_leaves_out_moving_and_changing_by_default);
+  RUN_TEST(test_covercalibrator_moving_and_changing_routes_reach_the_device);
+  RUN_TEST(test_covercalibrator_moving_and_changing_are_not_implemented_by_default);
   RUN_TEST(test_bad_urls_get_a_4xx_status);
   RUN_TEST(test_device_error_is_reported_in_the_body);
   RUN_TEST(test_a_get_error_has_a_default_value_of_the_right_type);

@@ -181,6 +181,16 @@ CoverCalibrator::~CoverCalibrator()
 {
 }
 
+esp_err_t CoverCalibrator::get_calibratorchanging(bool *changing)
+{
+  return ALPACA_ERR_NOT_IMPLEMENTED;
+}
+
+esp_err_t CoverCalibrator::get_covermoving(bool *moving)
+{
+  return ALPACA_ERR_NOT_IMPLEMENTED;
+}
+
 AlpacaServer::DeviceType Dome::device_type()
 {
   return AlpacaServer::DeviceType::Dome;
